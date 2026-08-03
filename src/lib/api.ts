@@ -121,6 +121,10 @@ export const api = {
     return request<{ user: UserSummary; profile: UserProfile }>('/api/me');
   },
 
+  async getProfile(): Promise<UserProfile> {
+    return request<UserProfile>('/api/me/profile');
+  },
+
   async completeOnboarding(payload: OnboardingPayload): Promise<{ message: string; profile: UserProfile }> {
     return request<{ message: string; profile: UserProfile }>('/api/me/onboarding', {
       method: 'POST',

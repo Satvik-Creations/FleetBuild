@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile, MemoryFact } from '../domain/models';
+import { api } from '../lib/api';
 import {
   User,
   ShieldAlert,
@@ -48,17 +49,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigateToFleetBot, 
     setIsLoading(true);
     setError(null);
     try {
-      const [profileRes, memoryRes] = await Promise.all([
-        fetch('/api/me/profile'),
-        fetch('/api/me/memory'),
+      const [profileData, memoryData] = await Promise.all([
+        api.getProfile(),
+        api.getMemoryFacts(),
       ]);
-
-      if (!profileRes.ok || !memoryRes.ok) {
-        throw new Error('Failed to load profile and memory facts from server');
-      }
-
-      const profileData: UserProfile = await profileRes.json();
-      const memoryData: MemoryFact[] = await memoryRes.json();
 
       setProfile(profileData);
       setMemoryFacts(memoryData);
@@ -108,12 +102,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigateToFleetBot, 
         name,
         email,
         fitnessGoal: {
+          id: profile?.fitnessGoal?.id || 'fg-1',
           title: goalTitle,
           targetDescription: goalDesc,
           primaryFocus,
         },
         equipmentAccess: equipmentArray,
         exercisePreferences: {
+          preferredExercises: profile?.exercisePreferences?.preferredExercises || [],
           excludedExercises: excludedArray,
           equipment: equipmentArray,
         },
@@ -125,17 +121,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigateToFleetBot, 
         },
       };
 
-      const res = await fetch('/api/me/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatePayload),
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to update profile');
-      }
-
-      const updatedProfile: UserProfile = await res.json();
+      const updatedProfile = await api.updateProfile(updatePayload);
       setProfile(updatedProfile);
       showToast('Profile and onboarding parameters saved successfully!');
     } catch (err) {
@@ -146,7 +132,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigateToFleetBot, 
     }
   };
 
-  const handleAddInjury = () => {
+  const handleAddInjury = async () => {
     if (!injuryDesc.trim() || !profile) return;
     const newConstraint = {
       id: `hc-${Date.now()}`,
@@ -161,24 +147,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigateToFleetBot, 
     setProfile({ ...profile, healthConstraints: updatedConstraints });
     setInjuryDesc('');
 
-    // Trigger API save
-    fetch('/api/me/profile', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ healthConstraints: updatedConstraints }),
-    });
-    showToast('Added health constraint/injury profile.');
+    try {
+      await api.updateProfile({ healthConstraints: updatedConstraints });
+      showToast('Added health constraint/injury profile.');
+    } catch (err) {
+      console.error('Error adding injury:', err);
+      showToast('Failed to save health constraint.');
+    }
   };
 
   const handleConfirmMemoryFact = async (factId: string, action: 'confirm' | 'reject') => {
     try {
-      const res = await fetch('/api/me/memory/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ factId, action }),
-      });
-
-      if (!res.ok) throw new Error('Failed to process memory action');
+      await api.confirmMemory(factId, action);
 
       // Update state locally
       setMemoryFacts((prev) =>
