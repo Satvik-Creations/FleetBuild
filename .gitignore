@@ -1,10 +1,12 @@
 node_modules/
-build/
 dist/
+.npm-cache/
+data/users.json
+.env
+!.env.example
+build/
 coverage/
 .DS_Store
 *.log
-.env*
-!.env.example
-data/
 .data_store.json
+
