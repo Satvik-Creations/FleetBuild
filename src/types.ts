@@ -1,4 +1,4 @@
-export type ViewType = 'dashboard' | 'fleetbot' | 'workout' | 'health';
+export type ViewType = 'dashboard' | 'fleetbot' | 'workout' | 'health' | 'profile' | 'admin';
 
 export interface MemoryContext {
   goal: string;
@@ -16,8 +16,9 @@ export interface ChatMessage {
   text: string;
   timestamp: string;
   hasAction?: boolean;
-  actionType?: 'load_routine' | 'clear_squats' | 'view_plan';
+  actionType?: 'load_routine' | 'clear_squats' | 'view_plan' | 'confirm_memory';
   actionLabel?: string;
+  candidateMemoryId?: string;
 }
 
 export interface Exercise {

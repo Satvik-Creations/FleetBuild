@@ -1,50 +1,39 @@
 import React from 'react';
-import { WorkoutPlan, WeightDataPoint, MemoryContext, DailyMetrics, ViewType } from '../types';
-import { Flame, Play, ShieldAlert, Bot, TrendingDown, ArrowRight, Zap, Scale, Heart, Sparkles, CheckCircle2 } from 'lucide-react';
+import { UserProfile } from '../domain/models';
+import { ViewType } from '../types';
+import { Dumbbell, Target, AlertTriangle, Bot, Utensils, Plus, Calendar, Activity, Sparkles, ArrowRight, ShieldCheck } from 'lucide-react';
 
 interface DashboardViewProps {
-  streakDays: number;
-  currentWorkoutPlan: WorkoutPlan;
-  weightHistory: WeightDataPoint[];
-  memoryContext: MemoryContext;
-  dailyMetrics: DailyMetrics;
-  onStartWorkout: () => void;
+  userProfile: UserProfile;
   onNavigateToView: (view: ViewType) => void;
-  onRestoreOriginalWorkout: () => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
-  streakDays,
-  currentWorkoutPlan,
-  weightHistory,
-  memoryContext,
-  dailyMetrics,
-  onStartWorkout,
+  userProfile,
   onNavigateToView,
-  onRestoreOriginalWorkout,
 }) => {
-  // Calculate max weight for graph relative sizing
-  const maxWeight = Math.max(...weightHistory.map((d) => d.weightKg), 82);
-  const minWeight = Math.min(...weightHistory.map((d) => d.weightKg), 77);
-  const weightDiff = (weightHistory[0]?.weightKg || 81.2) - (weightHistory[weightHistory.length - 1]?.weightKg || 79.3);
+  const goalTitle = userProfile.fitnessGoal?.title || 'Personal Fitness Goal';
+  const equipment = userProfile.equipmentAccess || [];
+  const activeConstraints = (userProfile.healthConstraints || []).filter((c) => c.active);
+  const dietary = userProfile.dietaryRestrictions || [];
 
   return (
-    <div className="space-[#FF5722] space-y-8 animate-fadeIn pb-12">
-      {/* Welcoming Header with Streak Highlight */}
+    <div className="space-y-8 animate-fadeIn pb-12">
+      {/* Personalized Welcoming Header */}
       <div className="relative overflow-hidden rounded-3xl bg-[#1E1E1E] p-6 sm:p-8 border border-white/10 shadow-2xl">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[#FF5722]/15 via-[#FFC107]/5 to-transparent rounded-full blur-3xl -z-0 pointer-events-none" />
-        
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[#FF5722]/15 via-[#FFC107]/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FFC107]/15 border border-[#FFC107]/30 text-[#FFC107] text-xs font-bold">
-              <Flame className="w-4 h-4 fill-[#FFC107]" />
-              <span>{streakDays}-DAY ACTIVE STREAK</span>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FF5722]/15 border border-[#FF5722]/30 text-[#FF5722] text-xs font-bold">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Personal Fitness Space</span>
             </div>
             <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-              Welcome back, <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-white/70">Alex</span>
+              Welcome, <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-white/70">{userProfile.name}</span>
             </h1>
-            <p className="text-sm text-white/60 max-w-xl">
-              Your neural coach FleetBot has analyzed your biometrics. System readiness is optimal at <strong className="text-emerald-400">88%</strong>.
+            <p className="text-xs sm:text-sm text-white/60 max-w-xl">
+              Your personal fitness space starts here. All training context is customized to your registered profile and goals.
             </p>
           </div>
 
@@ -57,11 +46,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span>Consult FleetBot</span>
             </button>
             <button
-              onClick={onStartWorkout}
+              onClick={() => onNavigateToView('workout')}
               className="px-6 py-3 rounded-2xl bg-[#FF5722] hover:bg-[#E64A19] text-white text-sm font-bold flex items-center gap-2 transition-all duration-300 shadow-xl shadow-[#FF5722]/30 hover:scale-[1.02] active:scale-[0.98]"
             >
-              <Play className="w-4 h-4 fill-white" />
-              <span>Start Workout</span>
+              <Plus className="w-4 h-4" />
+              <span>Log Workout</span>
             </button>
           </div>
         </div>
@@ -70,263 +59,175 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Main Grid Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Left Column (2 Cols): Today's Plan & FleetBot AI Adaptation Notice */}
+        {/* Left Column (2 Cols): Stated Profile Context & Empty Workout State */}
         <div className="lg:col-span-2 space-y-8">
           
-          {/* "Today's Plan" Card */}
-          <div className="rounded-3xl bg-[#1E1E1E] p-6 sm:p-8 border border-white/10 shadow-xl relative overflow-hidden group">
-            <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+          {/* Stated Personal Profile Card */}
+          <div className="rounded-3xl bg-[#1E1E1E] p-6 sm:p-8 border border-white/10 shadow-xl space-y-6">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div>
-                <span className="text-xs uppercase font-bold text-white/50 tracking-wider">
-                  Today's Plan
-                </span>
-                <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-                  {currentWorkoutPlan.title}
+                <span className="text-xs uppercase font-bold text-white/50 tracking-wider">Active Configuration</span>
+                <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2 mt-0.5">
+                  <ShieldCheck className="w-5 h-5 text-[#FF5722]" />
+                  <span>Your Stated Profile</span>
                 </h2>
               </div>
-
-              {currentWorkoutPlan.adaptedForInjury ? (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#FF5722]/15 border border-[#FF5722]/50 text-[#FF5722] text-xs font-bold animate-pulse">
-                  <ShieldAlert className="w-4 h-4" />
-                  <span>Knee-Safe Adaptive Plan</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Standard Hypertrophy</span>
-                </div>
-              )}
-            </div>
-
-            {/* AI Adaptation Alert Banner inside card if adapted */}
-            {currentWorkoutPlan.adaptedForInjury && (
-              <div className="mb-6 p-4 rounded-2xl bg-[#121212] border border-[#FF5722]/30 flex items-start gap-3">
-                <div className="p-2 rounded-xl bg-[#FF5722]/20 text-[#FF5722] shrink-0 mt-0.5">
-                  <Bot className="w-5 h-5" />
-                </div>
-                <div className="text-xs space-y-1">
-                  <p className="font-bold text-[#FF5722]">
-                    FleetBot AI Adaptation Active
-                  </p>
-                  <p className="text-white/70">
-                    Recalculated routine due to recorded <strong className="text-amber-300">Left Knee Pain</strong>.
-                    Barbell Squats removed and replaced with low-impact seated rows and core stabilization.
-                  </p>
-                  <button
-                    onClick={onRestoreOriginalWorkout}
-                    className="mt-1 text-[11px] font-semibold text-[#FFC107] hover:underline"
-                  >
-                    Revert to original Pull Day plan
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Exercise List Preview */}
-            <div className="space-y-3 mb-8">
-              <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">
-                Prescribed Exercises ({currentWorkoutPlan.exercises.length})
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {currentWorkoutPlan.exercises.map((ex, idx) => (
-                  <div
-                    key={ex.id}
-                    className="p-3.5 rounded-2xl bg-[#121212] border border-white/5 flex items-center justify-between hover:border-white/20 transition-all"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="w-7 h-7 rounded-xl bg-white/5 text-white/70 font-bold text-xs flex items-center justify-center">
-                        {idx + 1}
-                      </span>
-                      <div>
-                        <p className="text-xs font-bold text-white flex items-center gap-1.5">
-                          {ex.name}
-                          {ex.isAdapted && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#FF5722]/20 text-[#FF5722] font-semibold">
-                              New
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-[11px] text-white/50">{ex.targetMuscle}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs font-bold text-[#FFC107]">{ex.sets} sets</p>
-                      <p className="text-[10px] text-white/50">{ex.reps} reps</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* CTA Button in #FF5722 */}
-            <div className="flex items-center justify-between pt-4 border-t border-white/10 flex-wrap gap-4">
-              <div className="flex items-center gap-4 text-xs text-white/60">
-                <span>⏱️ Est. <strong>{currentWorkoutPlan.durationMinutes} mins</strong></span>
-                <span>🔥 Est. <strong>{currentWorkoutPlan.caloriesBurned} kcal</strong></span>
-              </div>
-
               <button
-                onClick={onStartWorkout}
-                className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-[#FF5722] hover:bg-[#E64A19] text-white font-extrabold text-sm flex items-center justify-center gap-2 transition-all duration-300 shadow-xl shadow-[#FF5722]/40 hover:scale-[1.02] active:scale-[0.98]"
+                onClick={() => onNavigateToView('profile')}
+                className="text-xs font-semibold text-[#FFC107] hover:underline"
               >
-                <span>Start Workout</span>
-                <ArrowRight className="w-4 h-4" />
+                Edit Profile Settings
               </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Primary Goal Box */}
+              <div className="p-4 rounded-2xl bg-[#121212] border border-white/5 space-y-1.5">
+                <div className="flex items-center gap-2 text-xs text-white/50 font-bold uppercase">
+                  <Target className="w-4 h-4 text-[#FF5722]" />
+                  <span>Stated Fitness Goal</span>
+                </div>
+                <p className="text-sm font-bold text-white">{goalTitle}</p>
+                {userProfile.fitnessGoal?.primaryFocus && (
+                  <span className="inline-block text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-[#FF5722]/20 text-[#FF5722]">
+                    {userProfile.fitnessGoal.primaryFocus.replace('_', ' ')}
+                  </span>
+                )}
+              </div>
+
+              {/* Equipment Box */}
+              <div className="p-4 rounded-2xl bg-[#121212] border border-white/5 space-y-1.5">
+                <div className="flex items-center gap-2 text-xs text-white/50 font-bold uppercase">
+                  <Dumbbell className="w-4 h-4 text-[#FFC107]" />
+                  <span>Available Equipment</span>
+                </div>
+                {equipment.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {equipment.map((eq) => (
+                      <span key={eq} className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-white/10 text-white/90">
+                        {eq}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-white/40 italic">No equipment specified</p>
+                )}
+              </div>
+
+              {/* Limitations Box */}
+              <div className="p-4 rounded-2xl bg-[#121212] border border-white/5 space-y-1.5">
+                <div className="flex items-center gap-2 text-xs text-white/50 font-bold uppercase">
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  <span>Stated Limitations</span>
+                </div>
+                {activeConstraints.length > 0 ? (
+                  <ul className="space-y-1">
+                    {activeConstraints.map((c) => (
+                      <li key={c.id} className="text-xs text-amber-300 font-semibold">
+                        • {c.description}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-white/40 italic">No limitations reported</p>
+                )}
+              </div>
+
+              {/* Dietary Restrictions Box */}
+              <div className="p-4 rounded-2xl bg-[#121212] border border-white/5 space-y-1.5">
+                <div className="flex items-center gap-2 text-xs text-white/50 font-bold uppercase">
+                  <Utensils className="w-4 h-4 text-emerald-400" />
+                  <span>Dietary Preferences</span>
+                </div>
+                {dietary.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {dietary.map((d) => (
+                      <span key={d} className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                        {d}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-white/40 italic">None specified</p>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Quick Metrics Cards Row */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="p-5 rounded-3xl bg-[#1E1E1E] border border-white/10 space-y-2">
-              <div className="w-8 h-8 rounded-xl bg-[#FF5722]/15 text-[#FF5722] flex items-center justify-center">
-                <Zap className="w-4 h-4" />
-              </div>
-              <p className="text-xs text-white/50">Target Calories</p>
-              <p className="text-xl font-bold text-white">{dailyMetrics.calorieTarget} <span className="text-xs text-white/50 font-normal">kcal</span></p>
+          {/* Honest Empty State: Workout Sessions */}
+          <div className="rounded-3xl bg-[#1E1E1E] p-8 border border-white/10 shadow-xl text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#121212] border border-white/10 text-white/40 flex items-center justify-center mx-auto">
+              <Calendar className="w-6 h-6 text-[#FF5722]" />
             </div>
-
-            <div className="p-5 rounded-3xl bg-[#1E1E1E] border border-white/10 space-y-2">
-              <div className="w-8 h-8 rounded-xl bg-[#FFC107]/15 text-[#FFC107] flex items-center justify-center">
-                <Heart className="w-4 h-4" />
-              </div>
-              <p className="text-xs text-white/50">Recovery Score</p>
-              <p className="text-xl font-bold text-[#FFC107]">{dailyMetrics.recoveryScore}% <span className="text-xs text-emerald-400 font-normal">Peak</span></p>
+            <div className="space-y-1 max-w-sm mx-auto">
+              <h3 className="text-lg font-bold text-white">No workouts logged yet</h3>
+              <p className="text-xs text-white/50">
+                Log your real workout routines and exercises to build your personal training log.
+              </p>
             </div>
-
-            <div className="p-5 rounded-3xl bg-[#1E1E1E] border border-white/10 space-y-2">
-              <div className="w-8 h-8 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center">
-                <Scale className="w-4 h-4" />
-              </div>
-              <p className="text-xs text-white/50">Current Weight</p>
-              <p className="text-xl font-bold text-white">{dailyMetrics.weight} <span className="text-xs text-white/50 font-normal">kg</span></p>
-            </div>
-
-            <div className="p-5 rounded-3xl bg-[#1E1E1E] border border-white/10 space-y-2">
-              <div className="w-8 h-8 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <p className="text-xs text-white/50">HRV Score</p>
-              <p className="text-xl font-bold text-white">{dailyMetrics.hrvMs} <span className="text-xs text-white/50 font-normal">ms</span></p>
-            </div>
+            <button
+              onClick={() => onNavigateToView('workout')}
+              className="px-6 py-3 rounded-2xl bg-[#121212] hover:bg-white/10 border border-white/10 text-white text-xs font-bold inline-flex items-center gap-2 transition-all"
+            >
+              <Plus className="w-4 h-4 text-[#FF5722]" />
+              <span>Record First Workout</span>
+            </button>
           </div>
 
         </div>
 
-        {/* Right Column (1 Col): 7-Day Health Tracking Graph (Weight Progression) */}
+        {/* Right Column (1 Col): Honest Empty State: Health & Biometrics */}
         <div className="space-y-8">
           
-          {/* 7-Day Weight Progression Card */}
+          {/* Honest Empty State: Biometrics */}
           <div className="rounded-3xl bg-[#1E1E1E] p-6 border border-white/10 shadow-xl space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-[#121212] text-[#FF5722] border border-white/10">
+                <Activity className="w-5 h-5" />
+              </div>
               <div>
-                <p className="text-xs uppercase font-bold text-white/50 tracking-wider">
-                  Biometric Trend
-                </p>
-                <h3 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-                  7-Day Weight Progression
-                </h3>
-              </div>
-              <div className="px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-bold flex items-center gap-1">
-                <TrendingDown className="w-3.5 h-3.5" />
-                <span>-{weightDiff.toFixed(1)} kg</span>
+                <h3 className="text-base font-bold text-white">Health & Biometrics</h3>
+                <p className="text-[11px] text-white/50">Track weight & hydration entries</p>
               </div>
             </div>
 
-            {/* Custom Responsive Bar Graph */}
-            <div className="space-y-3">
-              <div className="h-44 pt-6 pb-2 flex items-end justify-between gap-2 px-1">
-                {weightHistory.map((item, index) => {
-                  // Calculate height ratio
-                  const normalizedHeight = Math.max(
-                    20,
-                    Math.min(100, ((item.weightKg - minWeight + 0.5) / (maxWeight - minWeight + 0.5)) * 100)
-                  );
-
-                  const isToday = index === weightHistory.length - 1;
-
-                  return (
-                    <div key={item.day} className="flex-1 flex flex-col items-center gap-2 group relative">
-                      {/* Hover Tooltip */}
-                      <div className="absolute -top-9 opacity-0 group-hover:opacity-100 transition-opacity bg-[#121212] border border-white/20 text-white text-[11px] font-bold px-2 py-1 rounded-lg pointer-events-none z-20 whitespace-nowrap shadow-lg">
-                        {item.weightKg} kg
-                      </div>
-
-                      {/* Bar */}
-                      <div className="w-full max-w-[28px] bg-[#121212] rounded-t-xl h-full flex items-end overflow-hidden p-0.5">
-                        <div
-                          style={{ height: `${normalizedHeight}%` }}
-                          className={`w-full rounded-t-lg transition-all duration-500 ${
-                            isToday
-                              ? 'bg-gradient-to-t from-[#FF5722] to-[#FF8A65] shadow-lg shadow-[#FF5722]/50'
-                              : 'bg-white/20 group-hover:bg-[#FFC107]/80'
-                          }`}
-                        />
-                      </div>
-
-                      {/* Day Label */}
-                      <span
-                        className={`text-[11px] font-semibold ${
-                          isToday ? 'text-[#FF5722] font-bold' : 'text-white/50'
-                        }`}
-                      >
-                        {item.day}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Target Indicator */}
-              <div className="pt-3 border-t border-white/10 flex items-center justify-between text-xs text-white/60">
-                <span>Start: <strong className="text-white">81.2 kg</strong></span>
-                <span>Current: <strong className="text-[#FF5722]">79.3 kg</strong></span>
-                <span>Goal: <strong className="text-[#FFC107]">78.0 kg</strong></span>
-              </div>
+            <div className="p-6 rounded-2xl bg-[#121212] border border-white/5 text-center space-y-3">
+              <p className="text-xs font-bold text-white/80">No health metrics added yet</p>
+              <p className="text-[11px] text-white/40">
+                Record your real body weight and hydration in the Health Tracker.
+              </p>
+              <button
+                onClick={() => onNavigateToView('health')}
+                className="w-full py-2.5 rounded-xl bg-[#FF5722]/15 hover:bg-[#FF5722]/25 border border-[#FF5722]/30 text-[#FF5722] text-xs font-bold transition-colors inline-flex items-center justify-center gap-1.5"
+              >
+                <span>Open Health Tracker</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             </div>
-
-            <button
-              onClick={() => onNavigateToView('health')}
-              className="w-full py-3 rounded-2xl bg-[#121212] hover:bg-white/5 border border-white/10 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
-            >
-              <span>Open Detailed Health Tracker</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
           </div>
 
-          {/* Active Memory Engine Overview Box */}
+          {/* AI Assistant Context Quick Box */}
           <div className="rounded-3xl bg-[#1E1E1E] p-6 border border-white/10 shadow-xl space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Bot className="w-5 h-5 text-[#FF5722]" />
-                <h3 className="text-base font-bold text-white">Active Memory Engine</h3>
+                <h3 className="text-base font-bold text-white">FleetBot Neural Assistant</h3>
               </div>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FF5722]/20 text-[#FF5722]">
-                Neural AI
+                Personal AI
               </span>
             </div>
 
-            <div className="space-y-2.5 text-xs">
-              <div className="p-3 rounded-2xl bg-[#121212] border border-white/5 flex items-center justify-between">
-                <span className="text-white/60">Goal Target</span>
-                <span className="font-bold text-white">{memoryContext.goal}</span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-[#121212] border border-[#FF5722]/30 flex items-center justify-between">
-                <span className="text-white/60">Active Adaptation</span>
-                <span className="font-bold text-[#FF5722]">{memoryContext.injury}</span>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-[#121212] border border-white/5 flex items-center justify-between">
-                <span className="text-white/60">Excluded Moves</span>
-                <span className="font-bold text-[#FFC107]">{memoryContext.hates}</span>
-              </div>
-            </div>
+            <p className="text-xs text-white/60 leading-relaxed">
+              FleetBot uses your stored profile ({goalTitle}) to answer training queries and recommend general exercise form without fabricated metrics.
+            </p>
 
             <button
               onClick={() => onNavigateToView('fleetbot')}
-              className="w-full py-2.5 rounded-2xl bg-[#FF5722]/15 hover:bg-[#FF5722]/20 border border-[#FF5722]/30 text-[#FF5722] text-xs font-bold transition-colors"
+              className="w-full py-3 rounded-2xl bg-[#FF5722] hover:bg-[#E64A19] text-white text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-[#FF5722]/20"
             >
-              Manage FleetBot Memory Context
+              <span>Ask FleetBot a Question</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
 

@@ -1,115 +1,461 @@
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { GoogleGenAI } from '@google/genai';
+import { repository } from './src/server/repository.js';
+import { ChatOrchestrationService } from './src/server/chatOrchestrationService.js';
+import { hashPassword, verifyPassword } from './src/server/auth.js';
+import {
+  SignUpSchema,
+  SignInSchema,
+  OnboardingSchema,
+  UpdateProfileSchema,
+  ChatRequestSchema,
+  ConfirmMemorySchema,
+} from './src/domain/schemas.js';
+import { UserRole } from './src/domain/models.js';
+
+interface AuthenticatedRequest extends express.Request {
+  user?: {
+    userId: string;
+    role: UserRole;
+  };
+}
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  // Enforce request size limit
+  app.use(express.json({ limit: '1mb' }));
+
+  const orchestrator = new ChatOrchestrationService(repository);
+
+  // Authentication Middleware
+  const authenticateToken = async (req: AuthenticatedRequest, res: express.Response, next: express.NextFunction) => {
+    const authHeader = req.headers['authorization'];
+    const sessionHeader = req.headers['x-session-token'];
+    let token: string | undefined;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7).trim();
+    } else if (typeof sessionHeader === 'string' && sessionHeader.trim()) {
+      token = sessionHeader.trim();
+    }
+
+    if (!token) {
+      return res.status(401).json({ error: 'Authentication required. Please sign in.' });
+    }
+
+    const session = await repository.getSession(token);
+    if (!session) {
+      return res.status(401).json({ error: 'Invalid or expired session. Please sign in again.' });
+    }
+
+    req.user = {
+      userId: session.userId,
+      role: session.role,
+    };
+
+    next();
+  };
+
+  // Role Authorization Guard: Members only
+  const requireMemberRole = (req: AuthenticatedRequest, res: express.Response, next: express.NextFunction) => {
+    if (!req.user || req.user.role !== 'member') {
+      return res.status(403).json({ error: 'Access denied: Member privileges required.' });
+    }
+    next();
+  };
+
+  // Role Authorization Guard: Admins only
+  const requireAdminRole = (req: AuthenticatedRequest, res: express.Response, next: express.NextFunction) => {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied: Admin privileges required.' });
+    }
+    next();
+  };
 
   // API Health Check
-  app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', app: 'FleetBuild AI Platform' });
+  app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok', app: 'FleetBuild Personal Fitness Platform' });
   });
 
-  // FleetBot AI Chat Endpoint
-  app.post('/api/chat', async (req, res) => {
-    try {
-      const { message, memoryContext, chatHistory } = req.body;
-      const apiKey = process.env.GEMINI_API_KEY;
+  // --- AUTHENTICATION ROUTES ---
 
-      if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
-        // Fallback adaptive generator
-        return res.json({
-          reply: generateAdaptiveResponse(message, memoryContext),
-          updatedMemory: extractMemoryUpdates(message, memoryContext),
+  // POST /api/auth/sign-up (Member Registration)
+  app.post('/api/auth/sign-up', async (req, res) => {
+    try {
+      const parseResult = SignUpSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: 'Validation failed',
+          details: parseResult.error.flatten().fieldErrors,
         });
       }
 
-      const ai = new GoogleGenAI({ apiKey });
-      
-      const systemInstruction = `You are FleetBot, an elite AI Fitness Coach & Memory Engine for FleetBuild.
-Your tone is intense, encouraging, hyper-personalized, Tesla/Apple Health inspired, and direct.
-Current Active Memory Context:
-- Primary Goal: ${memoryContext?.goal || 'Muscle Gain'}
-- Medical & Injury Profile: ${memoryContext?.injury || 'Left Knee Pain'}
-- Dislikes & Excluded Exercises: ${memoryContext?.hates || 'Barbell Squats'}
-- Nutrition Target: ${memoryContext?.calories || '2,600 kcal'}
-- Equipment Access: ${memoryContext?.equipment || 'Full Gym'}
+      const { name, email, password } = parseResult.data;
 
-Instructions:
-1. Always adapt workout recommendations based on active memory context and injuries.
-2. If the user mentions pain, knee issues, fatigue, or equipment changes, acknowledge the adaptation, update their schedule, and pivot safely.
-3. Keep answers punchy, actionable, and formatted nicely.`;
+      const existingUser = await repository.findUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ error: 'An account with this email address already exists.' });
+      }
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: [
-          { role: 'user', parts: [{ text: `${systemInstruction}\n\nUser message: ${message}` }] }
-        ],
+      const { hash, salt } = hashPassword(password);
+      const user = await repository.createUser({
+        name,
+        email,
+        passwordHash: hash,
+        salt,
+        role: 'member',
       });
 
-      const reply = response.text || "I've processed your update and adjusted your training plan for maximum recovery and peak output.";
-      
-      res.json({
-        reply,
-        updatedMemory: extractMemoryUpdates(message, memoryContext),
+      const session = await repository.createSession(user.id, user.role);
+      const profile = await repository.getProfile(user.id);
+
+      res.status(201).json({
+        message: 'Account created successfully',
+        token: session.token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          onboardingCompleted: user.onboardingCompleted,
+        },
+        profile,
       });
-    } catch (error) {
-      console.error('Error generating FleetBot response:', error);
-      const { message, memoryContext } = req.body;
+    } catch (err) {
+      console.error('Error in sign-up:', err);
+      res.status(500).json({ error: 'Failed to complete sign-up.' });
+    }
+  });
+
+  // POST /api/auth/user/sign-in (Member Sign In)
+  app.post('/api/auth/user/sign-in', async (req, res) => {
+    try {
+      const parseResult = SignInSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: 'Validation failed',
+          details: parseResult.error.flatten().fieldErrors,
+        });
+      }
+
+      const { email, password } = parseResult.data;
+      const user = await repository.findUserByEmail(email);
+
+      if (!user) {
+        return res.status(401).json({ error: 'Invalid email or password.' });
+      }
+
+      if (user.role !== 'member') {
+        return res.status(403).json({ error: 'Please use the Admin Sign In portal for administrator accounts.' });
+      }
+
+      const isValid = verifyPassword(password, user.passwordHash, user.salt);
+      if (!isValid) {
+        return res.status(401).json({ error: 'Invalid email or password.' });
+      }
+
+      const session = await repository.createSession(user.id, user.role);
+      const profile = await repository.getProfile(user.id);
+
       res.json({
-        reply: generateAdaptiveResponse(message, memoryContext),
-        updatedMemory: extractMemoryUpdates(message, memoryContext),
+        message: 'Signed in successfully',
+        token: session.token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          onboardingCompleted: user.onboardingCompleted,
+        },
+        profile,
+      });
+    } catch (err) {
+      console.error('Error in member sign-in:', err);
+      res.status(500).json({ error: 'Failed to sign in.' });
+    }
+  });
+
+  // POST /api/auth/admin/sign-in (Admin Sign In)
+  app.post('/api/auth/admin/sign-in', async (req, res) => {
+    try {
+      const parseResult = SignInSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: 'Validation failed',
+          details: parseResult.error.flatten().fieldErrors,
+        });
+      }
+
+      const { email, password } = parseResult.data;
+      const user = await repository.findUserByEmail(email);
+
+      if (!user) {
+        return res.status(401).json({ error: 'Invalid admin credentials.' });
+      }
+
+      if (user.role !== 'admin') {
+        return res.status(403).json({ error: 'Access denied: Not an administrator account.' });
+      }
+
+      const isValid = verifyPassword(password, user.passwordHash, user.salt);
+      if (!isValid) {
+        return res.status(401).json({ error: 'Invalid admin credentials.' });
+      }
+
+      const session = await repository.createSession(user.id, user.role);
+
+      res.json({
+        message: 'Admin signed in successfully',
+        token: session.token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          onboardingCompleted: user.onboardingCompleted,
+        },
+      });
+    } catch (err) {
+      console.error('Error in admin sign-in:', err);
+      res.status(500).json({ error: 'Failed to process admin sign-in.' });
+    }
+  });
+
+  // POST /api/auth/sign-out
+  app.post('/api/auth/sign-out', authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const authHeader = req.headers['authorization'];
+      const sessionHeader = req.headers['x-session-token'];
+      let token: string | undefined;
+
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7).trim();
+      } else if (typeof sessionHeader === 'string') {
+        token = sessionHeader.trim();
+      }
+
+      if (token) {
+        await repository.deleteSession(token);
+      }
+
+      res.json({ success: true, message: 'Signed out successfully.' });
+    } catch (err) {
+      console.error('Error in sign-out:', err);
+      res.status(500).json({ error: 'Failed to sign out.' });
+    }
+  });
+
+  // --- MEMBER API ROUTES ---
+
+  // GET /api/me (Current authenticated user & profile info)
+  app.get('/api/me', authenticateToken, requireMemberRole, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.userId;
+      const user = await repository.findUserById(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User account not found' });
+      }
+
+      const profile = await repository.getProfile(userId);
+
+      res.json({
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          onboardingCompleted: user.onboardingCompleted,
+        },
+        profile,
+      });
+    } catch (err) {
+      console.error('Error in GET /api/me:', err);
+      res.status(500).json({ error: 'Failed to fetch account info.' });
+    }
+  });
+
+  // GET /api/me/profile
+  app.get('/api/me/profile', authenticateToken, requireMemberRole, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.userId;
+      const profile = await repository.getProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ error: 'Profile not found' });
+      }
+      res.json(profile);
+    } catch (err) {
+      console.error('Error fetching profile:', err);
+      res.status(500).json({ error: 'Failed to retrieve user profile.' });
+    }
+  });
+
+  // POST /api/me/onboarding (Save Onboarding Data)
+  app.post('/api/me/onboarding', authenticateToken, requireMemberRole, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.userId;
+      const parseResult = OnboardingSchema.safeParse(req.body);
+
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: 'Invalid onboarding payload',
+          details: parseResult.error.flatten().fieldErrors,
+        });
+      }
+
+      const { name, primaryFitnessGoal, goalFocus, goalDescription, equipmentAccess, healthConstraints, dietaryRestrictions } = parseResult.data;
+
+      const healthConstraintsArray = healthConstraints.trim()
+        ? [
+            {
+              id: `hc-${Date.now()}`,
+              category: 'injury' as const,
+              description: healthConstraints.trim(),
+              severity: 'moderate' as const,
+              active: true,
+            },
+          ]
+        : [];
+
+      const updatedProfile = await repository.updateProfile(userId, {
+        name,
+        fitnessGoal: {
+          id: `fg-${Date.now()}`,
+          title: primaryFitnessGoal,
+          targetDescription: goalDescription || primaryFitnessGoal,
+          primaryFocus: goalFocus,
+        },
+        equipmentAccess,
+        healthConstraints: healthConstraintsArray,
+        dietaryRestrictions,
+        onboardingCompleted: true,
+      });
+
+      res.json({
+        message: 'Onboarding completed successfully',
+        profile: updatedProfile,
+      });
+    } catch (err) {
+      console.error('Error processing onboarding:', err);
+      res.status(500).json({ error: 'Failed to complete onboarding.' });
+    }
+  });
+
+  // PUT /api/me/profile
+  app.put('/api/me/profile', authenticateToken, requireMemberRole, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.userId;
+      const parseResult = UpdateProfileSchema.safeParse(req.body);
+
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: 'Invalid profile data',
+          details: parseResult.error.flatten().fieldErrors,
+        });
+      }
+
+      const updated = await repository.updateProfile(userId, parseResult.data as any);
+      res.json(updated);
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      res.status(500).json({ error: 'Failed to update user profile.' });
+    }
+  });
+
+  // GET /api/me/memory
+  app.get('/api/me/memory', authenticateToken, requireMemberRole, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.userId;
+      const facts = await repository.getMemoryFacts(userId);
+      res.json(facts);
+    } catch (err) {
+      console.error('Error fetching memory facts:', err);
+      res.status(500).json({ error: 'Failed to retrieve AI memory facts.' });
+    }
+  });
+
+  // POST /api/me/memory/confirm
+  app.post('/api/me/memory/confirm', authenticateToken, requireMemberRole, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.userId;
+      const parseResult = ConfirmMemorySchema.safeParse(req.body);
+
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: 'Invalid memory confirmation payload',
+          details: parseResult.error.flatten().fieldErrors,
+        });
+      }
+
+      const { factId, action } = parseResult.data;
+
+      if (action === 'confirm') {
+        const fact = await repository.confirmMemoryFact(userId, factId);
+        if (!fact) {
+          return res.status(404).json({ error: 'Memory fact candidate not found' });
+        }
+        const updatedProfile = await repository.getProfile(userId);
+        return res.json({ success: true, fact, profile: updatedProfile });
+      } else {
+        const success = await repository.rejectMemoryFact(userId, factId);
+        if (!success) {
+          return res.status(404).json({ error: 'Memory fact candidate not found' });
+        }
+        return res.json({ success: true, factId, action: 'rejected' });
+      }
+    } catch (err) {
+      console.error('Error confirming/rejecting memory fact:', err);
+      res.status(500).json({ error: 'Failed to update memory status.' });
+    }
+  });
+
+  // POST /api/chat
+  app.post('/api/chat', authenticateToken, requireMemberRole, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.userId;
+      const parseResult = ChatRequestSchema.safeParse(req.body);
+
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: 'Invalid chat request',
+          details: parseResult.error.flatten().fieldErrors,
+        });
+      }
+
+      const { message, chatHistory } = parseResult.data;
+
+      const result = await orchestrator.processMessage(userId, message, chatHistory);
+
+      res.json({
+        reply: result.reply,
+        memoryCandidates: result.memoryCandidates,
+        safetyFlags: result.safetyFlags,
+        suggestedActions: result.suggestedActions,
+      });
+    } catch (err: any) {
+      console.error('Error handling chat request:', err);
+      const errorMessage = err?.message || 'Unable to process AI chat request at this time.';
+      res.status(503).json({
+        error: 'AI Service Error',
+        message: errorMessage,
       });
     }
   });
 
-  // Helper function for offline / fallback adaptive AI responses
-  function generateAdaptiveResponse(msg: string, memory: any) {
-    const lower = (msg || '').toLowerCase();
-    
-    if (lower.includes('knee') || lower.includes('leg') || lower.includes('pain') || lower.includes('hurt')) {
-      return "I've noted the left knee pain in your active medical profile. I am recalculating today's schedule. Let's pivot to a low-impact upper body mobility and core session. I've also removed barbell squats from your future plans until cleared. Should I load the new routine?";
-    }
-    if (lower.includes('core') || lower.includes('abs') || lower.includes('finisher')) {
-      return "Loaded 15-Min Core Finisher: 1) Hanging Leg Raises 4x15, 2) Cable Woodchoppers 3x12/side, 3) Anti-rotation Paloff Press 3x45s hold. High tension, zero lower body impact!";
-    }
-    if (lower.includes('recovery') || lower.includes('sleep') || lower.includes('score')) {
-      return "Your recovery score is currently 88% (Optimum). Heart Rate Variability is +6ms above baseline. You have high neural readiness for upper body pushing today!";
-    }
-    if (lower.includes('swap') || lower.includes('replace') || lower.includes('substitute')) {
-      return "Understood. Swapping Barbell Squats for Dumbbell Bulgarian Split-Squats or Cable Belt Squats to protect joint alignment while preserving leg hyper-trophy stimulus.";
-    }
-    if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey')) {
-      return "FleetBot Neural Coach online. All systems nominal. Streak is at 14 days! What are we optimizing today?";
-    }
+  // --- ADMIN ROUTES ---
 
-    return `Understood. I have logged this with your FleetBuild memory engine (${memory?.goal || 'Muscle Gain'}). I've fine-tuned your set velocity targets and volume thresholds accordingly. Let's execute!`;
-  }
-
-  function extractMemoryUpdates(msg: string, currentMemory: any) {
-    const lower = (msg || '').toLowerCase();
-    const newMemory = { ...currentMemory };
-
-    if (lower.includes('knee')) {
-      newMemory.injury = 'Left Knee Pain (Active Adaptation)';
-      if (!newMemory.hates.includes('Squats')) {
-        newMemory.hates = 'Squats, Heavy Leg Press';
-      }
+  // GET /api/admin/users
+  app.get('/api/admin/users', authenticateToken, requireAdminRole, async (_req, res) => {
+    try {
+      const users = await repository.getAllUsersForAdmin();
+      res.json(users);
+    } catch (err) {
+      console.error('Error fetching admin users list:', err);
+      res.status(500).json({ error: 'Failed to fetch user list.' });
     }
-    if (lower.includes('shoulder') || lower.includes('rotator')) {
-      newMemory.injury = 'Shoulder Impingement';
-    }
-    if (lower.includes('cut') || lower.includes('fat loss')) {
-      newMemory.goal = 'Lean Fat Loss & Definition';
-      newMemory.calories = '2,200 kcal';
-    }
-
-    return newMemory;
-  }
+  });
 
   // Vite middleware setup
   if (process.env.NODE_ENV !== 'production') {
@@ -121,7 +467,7 @@ Instructions:
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.get('*', (_req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

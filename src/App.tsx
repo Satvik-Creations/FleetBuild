@@ -1,36 +1,104 @@
 import React, { useState, useEffect } from 'react';
-import { ViewType, MemoryContext, ChatMessage, WorkoutPlan, WeightDataPoint, DailyMetrics } from './types';
-import {
-  initialMemoryContext,
-  initialChatMessages,
-  defaultWorkoutPlan,
-  adaptiveWorkoutPlan,
-  weight7DayHistory,
-  initialDailyMetrics,
-} from './data/mockData';
+import { ViewType, WorkoutPlan, WeightDataPoint, DailyMetrics } from './types';
+import { api, UserSummary, clearToken, getToken } from './lib/api';
+import { UserProfile } from './domain/models';
 
+import { AuthView } from './components/AuthView';
+import { OnboardingView } from './components/OnboardingView';
+import { AdminView } from './components/AdminView';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { DashboardView } from './components/DashboardView';
 import { FleetBotView } from './components/FleetBotView';
 import { WorkoutPlannerView } from './components/WorkoutPlannerView';
 import { HealthTrackerView } from './components/HealthTrackerView';
-import { Check, Zap, AlertCircle } from 'lucide-react';
+import { ProfileView } from './components/ProfileView';
+import { Zap, Loader2 } from 'lucide-react';
+
+const defaultEmptyProfile: UserProfile = {
+  id: 'profile-default',
+  userId: '',
+  name: '',
+  email: '',
+  fitnessGoal: {
+    id: 'fg-default',
+    title: 'General Health & Fitness',
+    targetDescription: 'Maintain energy and general physical strength',
+    primaryFocus: 'general_fitness',
+  },
+  healthConstraints: [],
+  exercisePreferences: {
+    preferredExercises: [],
+    excludedExercises: [],
+    equipment: [],
+  },
+  equipmentAccess: [],
+  dietaryRestrictions: [],
+  onboardingCompleted: false,
+  userConsent: {
+    medicalDisclaimerAccepted: true,
+    dataStorageConsent: true,
+    consentDate: new Date().toISOString(),
+  },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
+const defaultEmptyPlan: WorkoutPlan = {
+  id: 'plan-1',
+  title: 'Custom Training Session',
+  type: 'Personal Workout',
+  durationMinutes: 45,
+  caloriesBurned: 0,
+  exercises: [
+    {
+      id: 'ex-1',
+      name: 'Push-ups',
+      targetMuscle: 'Chest & Core',
+      sets: 3,
+      reps: '10-15',
+      weight: 'Bodyweight',
+    },
+    {
+      id: 'ex-2',
+      name: 'Bodyweight Squats',
+      targetMuscle: 'Quads & Glutes',
+      sets: 3,
+      reps: '15',
+      weight: 'Bodyweight',
+    },
+  ],
+};
+
+const defaultEmptyDailyMetrics: DailyMetrics = {
+  weight: 0,
+  streakDays: 1,
+  caloriesConsumed: 0,
+  calorieTarget: 2000,
+  waterLiters: 0,
+  waterTarget: 2.5,
+  sleepHours: 8,
+  hrvMs: 0,
+  recoveryScore: 100,
+};
 
 export default function App() {
-  // Navigation & State
+  // Authentication & Profile State
+  const [user, setUser] = useState<UserSummary | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile>(defaultEmptyProfile);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [isOnboardingPending, setIsOnboardingPending] = useState(false);
+
+  // Navigation State
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // App Core State
-  const [memoryContext, setMemoryContext] = useState<MemoryContext>(initialMemoryContext);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(initialChatMessages);
-  const [currentWorkoutPlan, setCurrentWorkoutPlan] = useState<WorkoutPlan>(defaultWorkoutPlan);
-  const [weightHistory, setWeightHistory] = useState<WeightDataPoint[]>(weight7DayHistory);
-  const [dailyMetrics, setDailyMetrics] = useState<DailyMetrics>(initialDailyMetrics);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [currentWorkoutPlan, setCurrentWorkoutPlan] = useState<WorkoutPlan>(defaultEmptyPlan);
+  const [weightHistory, setWeightHistory] = useState<WeightDataPoint[]>([]);
+  const [dailyMetrics, setDailyMetrics] = useState<DailyMetrics>(defaultEmptyDailyMetrics);
 
-  // Routine loaded state tracker
-  const [isAdaptiveRoutineLoaded, setIsAdaptiveRoutineLoaded] = useState(false);
   const [isGeneratingAiResponse, setIsGeneratingAiResponse] = useState(false);
 
   // Rest Timer State
@@ -47,6 +115,40 @@ export default function App() {
       setToastMessage(null);
     }, 3500);
   };
+
+  // Check auth session on boot
+  useEffect(() => {
+    const initAuth = async () => {
+      const token = getToken();
+      if (!token) {
+        setIsAuthChecking(false);
+        return;
+      }
+
+      try {
+        const { user: userData, profile: profileData } = await api.getMe();
+        setUser(userData);
+        if (profileData) {
+          setUserProfile(profileData);
+        }
+
+        if (userData.role === 'admin') {
+          setCurrentView('admin');
+        } else if (!userData.onboardingCompleted) {
+          setIsOnboardingPending(true);
+        } else {
+          setCurrentView('dashboard');
+        }
+      } catch (err) {
+        console.error('Session expired or invalid:', err);
+        clearToken();
+      } finally {
+        setIsAuthChecking(false);
+      }
+    };
+
+    initAuth();
+  }, []);
 
   // Rest Timer Countdown Effect
   useEffect(() => {
@@ -72,6 +174,44 @@ export default function App() {
     };
   }, [isTimerRunning, restTimerSeconds]);
 
+  // Auth Success Handler
+  const handleAuthSuccess = (userData: UserSummary, profileData?: UserProfile) => {
+    setUser(userData);
+    if (profileData) {
+      setUserProfile(profileData);
+    }
+
+    if (userData.role === 'admin') {
+      setCurrentView('admin');
+      setIsOnboardingPending(false);
+    } else if (!userData.onboardingCompleted) {
+      setIsOnboardingPending(true);
+    } else {
+      setIsOnboardingPending(false);
+      setCurrentView('dashboard');
+    }
+  };
+
+  // Sign Out Handler
+  const handleSignOut = async () => {
+    await api.signOut();
+    setUser(null);
+    setUserProfile(defaultEmptyProfile);
+    setIsOnboardingPending(false);
+    setCurrentView('dashboard');
+  };
+
+  // Onboarding Complete Handler
+  const handleOnboardingComplete = (updatedProfile: UserProfile) => {
+    setUserProfile(updatedProfile);
+    if (user) {
+      setUser({ ...user, onboardingCompleted: true });
+    }
+    setIsOnboardingPending(false);
+    setCurrentView('dashboard');
+    showToast('Onboarding completed! Welcome to your personal dashboard.');
+  };
+
   // Timer Controls
   const startTimer = (durationSeconds: number = 90) => {
     setRestTimerSeconds(durationSeconds);
@@ -95,19 +235,6 @@ export default function App() {
     if (!isTimerRunning) setIsTimerRunning(true);
   };
 
-  // Load Adaptive Knee-Safe Routine
-  const handleLoadAdaptiveRoutine = () => {
-    setCurrentWorkoutPlan(adaptiveWorkoutPlan);
-    setIsAdaptiveRoutineLoaded(true);
-    showToast('⚡ FleetBot Low-Impact Core & Upper Routine Loaded!');
-  };
-
-  const handleRestoreOriginalPlan = () => {
-    setCurrentWorkoutPlan(defaultWorkoutPlan);
-    setIsAdaptiveRoutineLoaded(false);
-    showToast('Restored standard Pull Day plan.');
-  };
-
   // Exercise set completion toggle
   const handleToggleExerciseComplete = (exerciseId: string) => {
     setCurrentWorkoutPlan((prev) => {
@@ -115,7 +242,7 @@ export default function App() {
         if (ex.id === exerciseId) {
           const newState = !ex.isCompleted;
           if (newState) {
-            startTimer(90); // Auto start 90s rest
+            startTimer(90);
           }
           return { ...ex, isCompleted: newState };
         }
@@ -128,9 +255,9 @@ export default function App() {
 
   // FleetBot Chat Send Handler
   const handleSendMessage = async (userText: string) => {
-    const userMsg: ChatMessage = {
+    const userMsg = {
       id: `msg-${Date.now()}`,
-      sender: 'user',
+      sender: 'user' as const,
       text: userText,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
@@ -139,60 +266,26 @@ export default function App() {
     setIsGeneratingAiResponse(true);
 
     try {
-      // Call /api/chat endpoint
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userText,
-          memoryContext,
-          chatHistory: chatMessages,
-        }),
-      });
+      const data = await api.sendChatMessage(userText, chatMessages);
 
-      const data = await response.json();
-
-      const aiMsg: ChatMessage = {
+      const aiMsg = {
         id: `msg-ai-${Date.now()}`,
-        sender: 'fleetbot',
+        sender: 'fleetbot' as const,
         text: data.reply || "Understood. I've updated your training parameters.",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        hasAction: userText.toLowerCase().includes('knee') || userText.toLowerCase().includes('leg'),
-        actionType: 'load_routine',
-        actionLabel: '⚡ Load Low-Impact Core & Upper Routine',
+        hasAction: data.suggestedActions && data.suggestedActions.length > 0,
+        actionType: data.suggestedActions?.[0]?.type as any,
+        actionLabel: data.suggestedActions?.[0]?.label,
       };
 
       setChatMessages((prev) => [...prev, aiMsg]);
-
-      // Update memory if returned
-      if (data.updatedMemory) {
-        setMemoryContext(data.updatedMemory);
-      }
-    } catch (err) {
-      console.error('Error communicating with FleetBot API:', err);
-      // Local fallback reply
-      const lower = userText.toLowerCase();
-      let replyText = "Understood. I've logged this in your active memory context and adjusted set target velocities.";
-      let hasAction = false;
-
-      if (lower.includes('knee') || lower.includes('leg') || lower.includes('pain')) {
-        replyText = "I've updated your medical profile regarding the left knee pain. I am recalculating today's schedule. Let's pivot to a low-impact upper body mobility and core session. I've also removed barbell squats from your future plans until you are cleared. Should I load the new routine?";
-        hasAction = true;
-        setMemoryContext((prev) => ({
-          ...prev,
-          injury: 'Left Knee Pain (Active Adaptation)',
-          hates: 'Barbell Squats',
-        }));
-      }
-
-      const aiMsg: ChatMessage = {
-        id: `msg-ai-fallback-${Date.now()}`,
-        sender: 'fleetbot',
-        text: replyText,
+    } catch (err: any) {
+      console.error('Error in chat request:', err);
+      const aiMsg = {
+        id: `msg-ai-error-${Date.now()}`,
+        sender: 'fleetbot' as const,
+        text: err?.message || 'Unable to connect to FleetBot AI service at this time. Please try again.',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        hasAction,
-        actionType: 'load_routine',
-        actionLabel: '⚡ Load Low-Impact Core & Upper Routine',
       };
 
       setChatMessages((prev) => [...prev, aiMsg]);
@@ -205,13 +298,10 @@ export default function App() {
   const handleUpdateWeight = (newWeight: number) => {
     setDailyMetrics((prev) => ({ ...prev, weight: newWeight }));
     setWeightHistory((prev) => {
-      const copy = [...prev];
-      if (copy.length > 0) {
-        copy[copy.length - 1] = { ...copy[copy.length - 1], weightKg: newWeight };
-      }
-      return copy;
+      const today = new Date().toLocaleDateString('en-US', { weekday: 'short' });
+      return [...prev, { day: today, weightKg: newWeight, targetKg: newWeight }];
     });
-    showToast(`Logged new weight: ${newWeight} kg`);
+    showToast(`Logged weight entry: ${newWeight} kg`);
   };
 
   // Update Water
@@ -219,6 +309,32 @@ export default function App() {
     setDailyMetrics((prev) => ({ ...prev, waterLiters: parseFloat(liters.toFixed(2)) }));
   };
 
+  // 1. Loading state during auth boot check
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen bg-[#121212] text-white flex flex-col items-center justify-center p-4">
+        <Loader2 className="w-10 h-10 text-[#FF5722] animate-spin mb-4" />
+        <p className="text-sm font-semibold text-white/70">Initializing FleetBuild Security...</p>
+      </div>
+    );
+  }
+
+  // 2. Unauthenticated state -> Show Auth View
+  if (!user) {
+    return <AuthView onAuthSuccess={handleAuthSuccess} />;
+  }
+
+  // 3. Authenticated member with pending onboarding -> Show Onboarding View
+  if (user.role === 'member' && isOnboardingPending) {
+    return (
+      <OnboardingView
+        initialName={user.name}
+        onOnboardingComplete={handleOnboardingComplete}
+      />
+    );
+  }
+
+  // 4. Authenticated & Onboarded Workspace
   return (
     <div className="min-h-screen bg-[#121212] text-white flex flex-col antialiased selection:bg-[#FF5722] selection:text-white">
       
@@ -241,10 +357,11 @@ export default function App() {
         <Sidebar
           currentView={currentView}
           onSelectView={setCurrentView}
-          streakDays={dailyMetrics.streakDays}
-          memoryContext={memoryContext}
+          userRole={user.role}
+          userName={user.name}
           isMobileOpen={isMobileMenuOpen}
           setIsMobileOpen={setIsMobileMenuOpen}
+          onSignOut={handleSignOut}
         />
 
         {/* Main Workspace Area */}
@@ -253,37 +370,51 @@ export default function App() {
           {/* Header Bar */}
           <Header
             currentView={currentView}
-            streakDays={dailyMetrics.streakDays}
-            memoryContext={memoryContext}
+            userName={user.name}
+            userRole={user.role}
             onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
             activeTimerSeconds={isTimerRunning ? restTimerSeconds : null}
             onOpenTimer={() => setCurrentView('workout')}
             onNavigateToFleetBot={() => setCurrentView('fleetbot')}
+            onSignOut={handleSignOut}
           />
 
           {/* View Container */}
           <main className="flex-1 p-4 sm:p-8 max-w-7xl w-full mx-auto">
+            {currentView === 'admin' && user.role === 'admin' && (
+              <AdminView />
+            )}
+
             {currentView === 'dashboard' && (
               <DashboardView
-                streakDays={dailyMetrics.streakDays}
-                currentWorkoutPlan={currentWorkoutPlan}
-                weightHistory={weightHistory}
-                memoryContext={memoryContext}
-                dailyMetrics={dailyMetrics}
-                onStartWorkout={() => setCurrentView('workout')}
+                userProfile={userProfile}
                 onNavigateToView={setCurrentView}
-                onRestoreOriginalWorkout={handleRestoreOriginalPlan}
               />
             )}
 
             {currentView === 'fleetbot' && (
               <FleetBotView
                 messages={chatMessages}
-                memoryContext={memoryContext}
+                memoryContext={{
+                  goal: userProfile.fitnessGoal?.title || 'General Fitness',
+                  injury: userProfile.healthConstraints?.[0]?.description || 'None Reported',
+                  hates: userProfile.exercisePreferences?.excludedExercises?.join(', ') || 'None',
+                  calories: 'Custom Goal',
+                  equipment: userProfile.equipmentAccess?.join(', ') || 'None Listed',
+                  recoveryScore: 100,
+                  lastUpdated: 'Just now',
+                }}
                 onSendMessage={handleSendMessage}
-                onUpdateMemoryContext={(updated) => setMemoryContext((prev) => ({ ...prev, ...updated }))}
-                onLoadAdaptiveRoutine={handleLoadAdaptiveRoutine}
-                isRoutineLoaded={isAdaptiveRoutineLoaded}
+                onUpdateMemoryContext={(updated) => {
+                  if (updated.goal) {
+                    setUserProfile((prev) => ({
+                      ...prev,
+                      fitnessGoal: { ...prev.fitnessGoal, title: updated.goal! },
+                    }));
+                  }
+                }}
+                onLoadAdaptiveRoutine={() => showToast('Loaded routine in Workout Planner.')}
+                isRoutineLoaded={false}
                 isGenerating={isGeneratingAiResponse}
               />
             )}
@@ -299,7 +430,7 @@ export default function App() {
                 onResetTimer={resetTimer}
                 onAddTimerSeconds={addTimerSeconds}
                 onToggleExerciseComplete={handleToggleExerciseComplete}
-                onRestoreOriginalPlan={handleRestoreOriginalPlan}
+                onRestoreOriginalPlan={() => setCurrentWorkoutPlan(defaultEmptyPlan)}
               />
             )}
 
@@ -309,6 +440,14 @@ export default function App() {
                 dailyMetrics={dailyMetrics}
                 onUpdateWeight={handleUpdateWeight}
                 onUpdateWater={handleUpdateWater}
+              />
+            )}
+
+            {currentView === 'profile' && (
+              <ProfileView
+                onNavigateToFleetBot={() => setCurrentView('fleetbot')}
+                onSignOut={handleSignOut}
+                showToast={showToast}
               />
             )}
           </main>

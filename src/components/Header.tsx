@@ -1,25 +1,27 @@
 import React from 'react';
-import { ViewType, MemoryContext } from '../types';
-import { Menu, Flame, Bot, Timer, Bell, ShieldCheck } from 'lucide-react';
+import { ViewType } from '../types';
+import { Menu, Bot, Timer, Bell, Shield, User } from 'lucide-react';
 
 interface HeaderProps {
   currentView: ViewType;
-  streakDays: number;
-  memoryContext: MemoryContext;
+  userName: string;
+  userRole: 'member' | 'admin';
   onOpenMobileMenu: () => void;
   activeTimerSeconds: number | null;
   onOpenTimer: () => void;
   onNavigateToFleetBot: () => void;
+  onSignOut: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   currentView,
-  streakDays,
-  memoryContext,
+  userName,
+  userRole,
   onOpenMobileMenu,
   activeTimerSeconds,
   onOpenTimer,
   onNavigateToFleetBot,
+  onSignOut,
 }) => {
   const titles: Record<ViewType, { title: string; subtitle: string }> = {
     dashboard: {
@@ -28,25 +30,42 @@ export const Header: React.FC<HeaderProps> = ({
     },
     fleetbot: {
       title: 'FleetBot AI Neural Coach',
-      subtitle: 'Active memory engine tracking goals, injuries & auto-adapting routines.',
+      subtitle: 'Active memory engine tracking goals & auto-adapting routines.',
     },
     workout: {
       title: 'Adaptive Workout Planner',
-      subtitle: 'Precision target volume, set logging & live rest recovery timer.',
+      subtitle: 'Target set logging & live rest recovery timer.',
     },
     health: {
       title: 'Health & Biometrics Tracker',
-      subtitle: '7-Day weight progression, macronutrients & recovery readiness.',
+      subtitle: 'Authentic body weight logs and hydration tracking.',
+    },
+    profile: {
+      title: 'Profile & Memory Settings',
+      subtitle: 'Authenticated member profile and health constraints.',
+    },
+    admin: {
+      title: 'System Administration',
+      subtitle: 'Role isolation & user account directory.',
     },
   };
 
-  const activeInfo = titles[currentView];
+  const activeInfo = titles[currentView] || titles.dashboard;
 
   const formatTimer = (secs: number) => {
     const mins = Math.floor(secs / 60);
     const s = secs % 60;
     return `${mins}:${s < 10 ? '0' : ''}${s}`;
   };
+
+  const initials = userName
+    ? userName
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .substring(0, 2)
+        .toUpperCase()
+    : 'FB';
 
   return (
     <header className="sticky top-0 z-30 bg-[#121212]/90 backdrop-blur-md border-b border-white/10 px-4 sm:px-8 py-4 flex items-center justify-between">
@@ -83,48 +102,48 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
 
-        {/* FleetBot Memory Context Pill */}
-        <button
-          onClick={onNavigateToFleetBot}
-          className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1E1E1E] border border-white/10 hover:border-[#FF5722]/50 text-xs font-medium text-white/80 transition-all"
-        >
-          <Bot className="w-3.5 h-3.5 text-[#FF5722]" />
-          <span>Active Context:</span>
-          <span className="text-[#FFC107] font-semibold flex items-center gap-1">
-            <ShieldCheck className="w-3 h-3 text-emerald-400" />
-            {memoryContext.injury}
-          </span>
-        </button>
+        {/* FleetBot Button */}
+        {userRole === 'member' && (
+          <button
+            onClick={onNavigateToFleetBot}
+            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1E1E1E] border border-white/10 hover:border-[#FF5722]/50 text-xs font-medium text-white/80 transition-all"
+          >
+            <Bot className="w-3.5 h-3.5 text-[#FF5722]" />
+            <span>FleetBot AI</span>
+          </button>
+        )}
 
-        {/* Streak Pill */}
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#FFC107]/15 border border-[#FFC107]/40 text-[#FFC107] text-xs font-bold shadow-sm">
-          <Flame className="w-4 h-4 fill-[#FFC107]" />
-          <span>{streakDays}d</span>
-        </div>
-
-        {/* Notifications Icon */}
-        <button
-          className="p-2 rounded-full bg-[#1E1E1E] border border-white/10 text-white/70 hover:text-white hover:bg-white/10 transition-colors relative"
-          aria-label="Notifications"
-        >
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#FF5722]" />
-        </button>
-
-        {/* User Profile */}
+        {/* User Profile Info */}
         <div className="flex items-center gap-2.5 pl-2 border-l border-white/10">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#FF5722] via-[#FFC107] to-amber-500 p-[2px]">
-            <img
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80"
-              alt="Alex Rivers Avatar"
-              className="w-full h-full object-cover rounded-full"
-            />
+          <div className="w-9 h-9 rounded-full bg-[#FF5722] text-white font-black text-xs flex items-center justify-center shadow-md">
+            {initials}
           </div>
-          <div className="hidden xl:block">
-            <p className="text-xs font-bold text-white">Alex Rivers</p>
-            <p className="text-[10px] text-[#FFC107] font-semibold">Pro Fleet Athlete</p>
+          <div className="hidden sm:block">
+            <p className="text-xs font-bold text-white">{userName}</p>
+            <p className="text-[10px] font-bold text-[#FFC107] flex items-center gap-1 uppercase">
+              {userRole === 'admin' ? (
+                <>
+                  <Shield className="w-3 h-3 text-amber-400" />
+                  <span className="text-amber-400">Admin</span>
+                </>
+              ) : (
+                <>
+                  <User className="w-3 h-3 text-[#FF5722]" />
+                  <span>Member</span>
+                </>
+              )}
+            </p>
           </div>
         </div>
+
+        {/* Sign Out Button */}
+        <button
+          onClick={onSignOut}
+          className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-[#1E1E1E] hover:bg-red-500/20 text-white/70 hover:text-red-400 border border-white/10 transition-colors"
+          title="Sign out of account"
+        >
+          Sign Out
+        </button>
       </div>
     </header>
   );

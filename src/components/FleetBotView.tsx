@@ -216,22 +216,48 @@ export const FleetBotView: React.FC<FleetBotViewProps> = ({
                 >
                   <p className="whitespace-pre-wrap">{msg.text}</p>
 
-                  {/* Message Actions (e.g. Load Routine Button) */}
-                  {msg.hasAction && msg.actionType === 'load_routine' && (
+                  {/* Message Actions (e.g. Load Routine Button or Memory Confirmation) */}
+                  {msg.hasAction && (
                     <div className="mt-4 pt-3 border-t border-white/15">
-                      {isRoutineLoaded ? (
-                        <div className="p-3 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs font-bold flex items-center gap-2">
-                          <Check className="w-4 h-4" />
-                          <span>Low-Impact Routine Successfully Loaded into Dashboard!</span>
+                      {msg.actionType === 'load_routine' && (
+                        isRoutineLoaded ? (
+                          <div className="p-3 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs font-bold flex items-center gap-2">
+                            <Check className="w-4 h-4" />
+                            <span>Low-Impact Routine Successfully Loaded into Dashboard!</span>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={onLoadAdaptiveRoutine}
+                            className="w-full py-3 px-4 rounded-2xl bg-[#FF5722] hover:bg-[#E64A19] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xl shadow-[#FF5722]/40 transition-all transform hover:scale-[1.01] cursor-pointer"
+                          >
+                            <Zap className="w-4 h-4 fill-white" />
+                            <span>{msg.actionLabel || 'Load Adaptive Routine'}</span>
+                          </button>
+                        )
+                      )}
+
+                      {msg.actionType === 'confirm_memory' && (
+                        <div className="p-3 rounded-2xl bg-[#121212] border border-[#FFC107]/40 space-y-2">
+                          <div className="flex items-center gap-2 text-xs font-bold text-[#FFC107]">
+                            <Sparkles className="w-4 h-4" />
+                            <span>Candidate AI Memory Inferred</span>
+                          </div>
+                          <p className="text-xs text-white/70">
+                            Confirming this memory will update your profile health constraints & goal preferences permanently.
+                          </p>
+                          <a
+                            href="#profile"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              // Navigate to profile
+                              const profileNavBtn = document.querySelector('button[id="profile"]') as HTMLElement;
+                              if (profileNavBtn) profileNavBtn.click();
+                            }}
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-[#FF5722] hover:underline pt-1"
+                          >
+                            <span>Open Profile & Memory Manager →</span>
+                          </a>
                         </div>
-                      ) : (
-                        <button
-                          onClick={onLoadAdaptiveRoutine}
-                          className="w-full py-3 px-4 rounded-2xl bg-[#FF5722] hover:bg-[#E64A19] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xl shadow-[#FF5722]/40 transition-all transform hover:scale-[1.01]"
-                        >
-                          <Zap className="w-4 h-4 fill-white" />
-                          <span>{msg.actionLabel || 'Load Adaptive Routine'}</span>
-                        </button>
                       )}
                     </div>
                   )}
