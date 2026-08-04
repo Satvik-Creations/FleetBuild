@@ -13,6 +13,7 @@ import { FleetBotView } from './components/FleetBotView';
 import { WorkoutPlannerView } from './components/WorkoutPlannerView';
 import { HealthTrackerView } from './components/HealthTrackerView';
 import { ProfileView } from './components/ProfileView';
+import { AccountManager } from './components/AccountManager';
 import { Zap, Loader2 } from 'lucide-react';
 
 const defaultEmptyProfile: UserProfile = {
@@ -371,6 +372,7 @@ export default function App() {
           <Header
             currentView={currentView}
             userName={user.name}
+            userAvatarUrl={userProfile.avatarUrl}
             userRole={user.role}
             onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
             activeTimerSeconds={isTimerRunning ? restTimerSeconds : null}
@@ -446,8 +448,24 @@ export default function App() {
             {currentView === 'profile' && (
               <ProfileView
                 onNavigateToFleetBot={() => setCurrentView('fleetbot')}
+                onNavigateToAccount={() => setCurrentView('account')}
                 onSignOut={handleSignOut}
                 showToast={showToast}
+              />
+            )}
+
+            {currentView === 'account' && (
+              <AccountManager
+                user={user}
+                profile={userProfile}
+                onProfileUpdated={(updatedProfile) => {
+                  setUserProfile(updatedProfile);
+                  if (user && updatedProfile.name && updatedProfile.name !== user.name) {
+                    setUser({ ...user, name: updatedProfile.name });
+                  }
+                }}
+                showToast={showToast}
+                onSignOut={handleSignOut}
               />
             )}
           </main>

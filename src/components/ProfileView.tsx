@@ -16,15 +16,17 @@ import {
   FileCheck,
   HeartPulse,
   Plus,
+  Settings,
 } from 'lucide-react';
 
 interface ProfileViewProps {
   onNavigateToFleetBot: () => void;
+  onNavigateToAccount?: () => void;
   onSignOut: () => void;
   showToast: (msg: string) => void;
 }
 
-export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigateToFleetBot, onSignOut, showToast }) => {
+export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigateToFleetBot, onNavigateToAccount, onSignOut, showToast }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [memoryFacts, setMemoryFacts] = useState<MemoryFact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -232,7 +234,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onNavigateToFleetBot, 
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {onNavigateToAccount && (
+            <button
+              onClick={onNavigateToAccount}
+              className="px-4 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
+            >
+              <Settings className="w-4 h-4" />
+              <span>Account Settings</span>
+            </button>
+          )}
           <button
             onClick={onNavigateToFleetBot}
             className="px-5 py-3 rounded-2xl bg-[#FF5722] hover:bg-[#E64A19] text-white font-bold text-xs flex items-center gap-2 shadow-xl shadow-[#FF5722]/30 transition-all cursor-pointer"

@@ -22,6 +22,8 @@ export interface UserRepository {
   
   getProfile(userId: string): Promise<UserProfile | null>;
   updateProfile(userId: string, profileUpdates: Partial<UserProfile>): Promise<UserProfile>;
+  updatePassword(userId: string, newPasswordHash: string, newSalt: string): Promise<void>;
+  deleteUser(userId: string): Promise<void>;
   
   getMemoryFacts(userId: string): Promise<MemoryFact[]>;
   addMemoryFact(userId: string, factData: Omit<MemoryFact, 'id' | 'timestamp'>): Promise<MemoryFact>;
@@ -328,6 +330,14 @@ export class JsonFileUserRepository implements UserRepository {
 
     userData.profile = updatedProfile;
 
+    // If name or email changed, reflect in account
+    if (profileUpdates.name !== undefined) {
+      userData.account.name = profileUpdates.name;
+    }
+    if (profileUpdates.email !== undefined) {
+      userData.account.email = profileUpdates.email;
+    }
+
     // If onboarding status was updated, also reflect in account
     if (profileUpdates.onboardingCompleted !== undefined) {
       userData.account.onboardingCompleted = profileUpdates.onboardingCompleted;
@@ -335,6 +345,28 @@ export class JsonFileUserRepository implements UserRepository {
 
     this.saveUsersToFile();
     return JSON.parse(JSON.stringify(updatedProfile));
+  }
+
+  async updatePassword(userId: string, newPasswordHash: string, newSalt: string): Promise<void> {
+    const userData = this.usersMap.get(userId);
+    if (!userData) {
+      throw new Error(`User not found: ${userId}`);
+    }
+    userData.account.passwordHash = newPasswordHash;
+    userData.account.salt = newSalt;
+    userData.account.updatedAt = new Date().toISOString();
+    this.saveUsersToFile();
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    this.usersMap.delete(userId);
+    for (const [token, session] of Array.from(this.sessionsMap.entries())) {
+      if (session.userId === userId) {
+        this.sessionsMap.delete(token);
+      }
+    }
+    this.saveUsersToFile();
+    this.saveSessionsToFile();
   }
 
   async getMemoryFacts(userId: string): Promise<MemoryFact[]> {

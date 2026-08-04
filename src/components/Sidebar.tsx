@@ -1,6 +1,6 @@
 import React from 'react';
 import { ViewType } from '../types';
-import { LayoutDashboard, Bot, Dumbbell, Activity, User, Shield, LogOut, Sparkles } from 'lucide-react';
+import { LayoutDashboard, Bot, Dumbbell, Activity, User, Shield, LogOut, Sparkles, Settings } from 'lucide-react';
 
 interface SidebarProps {
   currentView: ViewType;
@@ -48,6 +48,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Profile & Memory',
       icon: <User className="w-5 h-5" />,
       badge: 'Secure',
+    },
+    {
+      id: 'account',
+      label: 'Account Settings',
+      icon: <Settings className="w-5 h-5" />,
+      badge: 'Settings',
     },
   ];
 

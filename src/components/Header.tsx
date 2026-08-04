@@ -5,6 +5,7 @@ import { Menu, Bot, Timer, Bell, Shield, User } from 'lucide-react';
 interface HeaderProps {
   currentView: ViewType;
   userName: string;
+  userAvatarUrl?: string;
   userRole: 'member' | 'admin';
   onOpenMobileMenu: () => void;
   activeTimerSeconds: number | null;
@@ -16,6 +17,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   currentView,
   userName,
+  userAvatarUrl,
   userRole,
   onOpenMobileMenu,
   activeTimerSeconds,
@@ -43,6 +45,10 @@ export const Header: React.FC<HeaderProps> = ({
     profile: {
       title: 'Profile & Memory Settings',
       subtitle: 'Authenticated member profile and health constraints.',
+    },
+    account: {
+      title: 'Account Settings & Preferences',
+      subtitle: 'Profile details, password, avatar, notifications and app preferences.',
     },
     admin: {
       title: 'System Administration',
@@ -115,8 +121,12 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* User Profile Info */}
         <div className="flex items-center gap-2.5 pl-2 border-l border-white/10">
-          <div className="w-9 h-9 rounded-full bg-[#FF5722] text-white font-black text-xs flex items-center justify-center shadow-md">
-            {initials}
+          <div className="w-9 h-9 rounded-full bg-[#FF5722] text-white font-black text-xs flex items-center justify-center shadow-md overflow-hidden border border-amber-500/30">
+            {userAvatarUrl ? (
+              <img src={userAvatarUrl} alt={userName} className="w-full h-full object-cover" />
+            ) : (
+              initials
+            )}
           </div>
           <div className="hidden sm:block">
             <p className="text-xs font-bold text-white">{userName}</p>

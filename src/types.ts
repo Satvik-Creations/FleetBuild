@@ -1,4 +1,4 @@
-export type ViewType = 'dashboard' | 'fleetbot' | 'workout' | 'health' | 'profile' | 'admin';
+export type ViewType = 'dashboard' | 'fleetbot' | 'workout' | 'health' | 'profile' | 'admin' | 'account';
 
 export interface MemoryContext {
   goal: string;

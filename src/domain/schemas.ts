@@ -60,17 +60,56 @@ export const UserConsentSchema = z.object({
   consentDate: z.string().default(() => new Date().toISOString()),
 });
 
+// Notification Preferences Schema
+export const NotificationPreferencesSchema = z.object({
+  workoutReminders: z.boolean().default(true),
+  recoveryAlerts: z.boolean().default(true),
+  weeklyProgressReport: z.boolean().default(true),
+  aiCoachTips: z.boolean().default(true),
+});
+
+// Privacy Settings Schema
+export const PrivacySettingsSchema = z.object({
+  shareAnalytics: z.boolean().default(false),
+  allowAiContextMemory: z.boolean().default(true),
+  publicProfile: z.boolean().default(false),
+});
+
+// Change Password Schema
+export const ChangePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+  confirmNewPassword: z.string().min(8, 'Confirm password must be at least 8 characters'),
+}).refine((data) => data.newPassword === data.confirmNewPassword, {
+  message: 'New passwords do not match',
+  path: ['confirmNewPassword'],
+});
+
 // User Profile Schema
 export const UserProfileSchema = z.object({
   id: z.string(),
   userId: z.string(),
   name: z.string().min(1, 'Name is required'),
+  username: z.string().optional(),
   email: z.string().email('Invalid email address'),
+  avatarUrl: z.string().optional(),
+  onboardingCompleted: z.boolean(),
+  age: z.number().optional(),
+  gender: z.enum(['male', 'female', 'non_binary', 'prefer_not_to_say']).optional(),
+  heightCm: z.number().optional(),
+  weightKg: z.number().optional(),
+  activityLevel: z.enum(['sedentary', 'lightly_active', 'moderately_active', 'very_active', 'extra_active']).optional(),
+  experienceLevel: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
+  preferredSplit: z.enum(['full_body', 'push_pull_legs', 'upper_lower', 'bro_split', 'custom']).optional(),
+  preferredWorkoutDays: z.array(z.string()).optional(),
+  unitPreference: z.enum(['metric', 'imperial']).optional(),
   fitnessGoal: FitnessGoalSchema,
   equipmentAccess: z.array(z.string()),
   exercisePreferences: ExercisePreferenceSchema,
   healthConstraints: z.array(HealthConstraintSchema),
   dietaryRestrictions: z.array(z.string()),
+  notificationPreferences: NotificationPreferencesSchema.optional(),
+  privacySettings: PrivacySettingsSchema.optional(),
   userConsent: UserConsentSchema,
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -79,12 +118,25 @@ export const UserProfileSchema = z.object({
 // Update Profile API Request Schema
 export const UpdateProfileSchema = z.object({
   name: z.string().min(1).optional(),
+  username: z.string().optional(),
   email: z.string().email().optional(),
+  avatarUrl: z.string().optional(),
+  age: z.number().min(13).max(120).optional().nullable(),
+  gender: z.enum(['male', 'female', 'non_binary', 'prefer_not_to_say']).optional().nullable(),
+  heightCm: z.number().min(50).max(300).optional().nullable(),
+  weightKg: z.number().min(20).max(500).optional().nullable(),
+  activityLevel: z.enum(['sedentary', 'lightly_active', 'moderately_active', 'very_active', 'extra_active']).optional(),
+  experienceLevel: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
+  preferredSplit: z.enum(['full_body', 'push_pull_legs', 'upper_lower', 'bro_split', 'custom']).optional(),
+  preferredWorkoutDays: z.array(z.string()).optional(),
+  unitPreference: z.enum(['metric', 'imperial']).optional(),
   fitnessGoal: FitnessGoalSchema.partial().optional(),
   equipmentAccess: z.array(z.string()).optional(),
   exercisePreferences: ExercisePreferenceSchema.partial().optional(),
   healthConstraints: z.array(HealthConstraintSchema).optional(),
   dietaryRestrictions: z.array(z.string()).optional(),
+  notificationPreferences: NotificationPreferencesSchema.partial().optional(),
+  privacySettings: PrivacySettingsSchema.partial().optional(),
   userConsent: UserConsentSchema.partial().optional(),
 });
 

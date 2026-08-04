@@ -9,6 +9,7 @@ import {
   SignInSchema,
   OnboardingSchema,
   UpdateProfileSchema,
+  ChangePasswordSchema,
   ChatRequestSchema,
   ConfirmMemorySchema,
 } from './src/domain/schemas.js';
@@ -361,6 +362,85 @@ async function startServer() {
     } catch (err) {
       console.error('Error updating profile:', err);
       res.status(500).json({ error: 'Failed to update user profile.' });
+    }
+  });
+
+  // POST /api/me/password (Change Password)
+  app.post('/api/me/password', authenticateToken, requireMemberRole, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.userId;
+      const parseResult = ChangePasswordSchema.safeParse(req.body);
+
+      if (!parseResult.success) {
+        return res.status(400).json({
+          error: 'Validation failed',
+          details: parseResult.error.flatten().fieldErrors,
+        });
+      }
+
+      const { currentPassword, newPassword } = parseResult.data;
+      const user = await repository.findUserById(userId);
+
+      if (!user) {
+        return res.status(404).json({ error: 'User account not found' });
+      }
+
+      const isValid = verifyPassword(currentPassword, user.passwordHash, user.salt);
+      if (!isValid) {
+        return res.status(400).json({ error: 'Current password is incorrect.' });
+      }
+
+      const { hash: newHash, salt: newSalt } = hashPassword(newPassword);
+      await repository.updatePassword(userId, newHash, newSalt);
+
+      res.json({ success: true, message: 'Password updated successfully.' });
+    } catch (err) {
+      console.error('Error updating password:', err);
+      res.status(500).json({ error: 'Failed to update password.' });
+    }
+  });
+
+  // POST /api/me/delete-account
+  app.post('/api/me/delete-account', authenticateToken, requireMemberRole, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.userId;
+      const { password, confirmationText } = req.body;
+
+      if (!password) {
+        return res.status(400).json({ error: 'Account password is required.' });
+      }
+
+      if (!confirmationText) {
+        return res.status(400).json({ error: 'Please type the confirmation phrase to delete your account.' });
+      }
+
+      const normalized = String(confirmationText).trim().toLowerCase();
+      if (normalized !== 'delete my account' && normalized !== 'delete my fleetbuild account' && normalized !== 'delete account') {
+        return res.status(400).json({ error: 'Confirmation text does not match "delete my account".' });
+      }
+
+      const user = await repository.findUserById(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User account not found.' });
+      }
+
+      const isPasswordValid = verifyPassword(password, user.passwordHash, user.salt);
+      if (!isPasswordValid) {
+        return res.status(400).json({ error: 'Incorrect account password.' });
+      }
+
+      await repository.deleteUser(userId);
+
+      res.clearCookie('fleet_session', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+      });
+
+      res.json({ success: true, message: 'Your FleetBuild account has been permanently deleted.' });
+    } catch (err) {
+      console.error('Error deleting account:', err);
+      res.status(500).json({ error: 'Failed to delete account.' });
     }
   });
 

@@ -139,6 +139,20 @@ export const api = {
     });
   },
 
+  async changePassword(payload: { currentPassword: string; newPassword: string; confirmNewPassword: string }): Promise<{ success: boolean; message: string }> {
+    return request<{ success: boolean; message: string }>('/api/me/password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async deleteAccount(payload: { password: string; confirmationText: string }): Promise<{ success: boolean; message: string }> {
+    return request<{ success: boolean; message: string }>('/api/me/delete-account', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
   async getMemoryFacts(): Promise<MemoryFact[]> {
     return request<MemoryFact[]>('/api/me/memory');
   },

@@ -54,17 +54,43 @@ export interface UserConsent {
   consentDate: string;
 }
 
+export interface NotificationPreferences {
+  workoutReminders: boolean;
+  recoveryAlerts: boolean;
+  weeklyProgressReport: boolean;
+  aiCoachTips: boolean;
+}
+
+export interface PrivacySettings {
+  shareAnalytics: boolean;
+  allowAiContextMemory: boolean;
+  publicProfile: boolean;
+}
+
 export interface UserProfile {
   id: string;
   userId: string;
   name: string;
+  username?: string;
   email: string;
+  avatarUrl?: string;
   onboardingCompleted: boolean;
+  age?: number;
+  gender?: 'male' | 'female' | 'non_binary' | 'prefer_not_to_say';
+  heightCm?: number;
+  weightKg?: number;
+  activityLevel?: 'sedentary' | 'lightly_active' | 'moderately_active' | 'very_active' | 'extra_active';
+  experienceLevel?: 'beginner' | 'intermediate' | 'advanced';
+  preferredSplit?: 'full_body' | 'push_pull_legs' | 'upper_lower' | 'bro_split' | 'custom';
+  preferredWorkoutDays?: string[];
+  unitPreference?: 'metric' | 'imperial';
   fitnessGoal: FitnessGoal;
   equipmentAccess: string[];
   exercisePreferences: ExercisePreference;
   healthConstraints: HealthConstraint[];
   dietaryRestrictions: string[];
+  notificationPreferences?: NotificationPreferences;
+  privacySettings?: PrivacySettings;
   userConsent: UserConsent;
   createdAt: string;
   updatedAt: string;

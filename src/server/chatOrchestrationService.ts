@@ -60,14 +60,25 @@ You MUST respond with valid JSON containing:
     const untrustedUserData = `
 <untrusted_user_profile>
 User Name: ${userProfile.name}
+Email: ${userProfile.email}
+Age: ${userProfile.age ?? 'Not specified'}
+Gender: ${userProfile.gender ?? 'Not specified'}
+Height: ${userProfile.heightCm ? `${userProfile.heightCm} cm` : 'Not specified'}
+Weight: ${userProfile.weightKg ? `${userProfile.weightKg} kg` : 'Not specified'}
+Experience Level: ${userProfile.experienceLevel ?? 'Intermediate'}
+Activity Level: ${userProfile.activityLevel ?? 'Moderately active'}
+Preferred Workout Split: ${userProfile.preferredSplit ?? 'Not specified'}
+Preferred Workout Days: ${userProfile.preferredWorkoutDays?.join(', ') || 'Flexible'}
+Measurement Unit Preference: ${userProfile.unitPreference ?? 'metric'}
 Primary Goal: ${userProfile.fitnessGoal.title} (${userProfile.fitnessGoal.targetDescription})
-Equipment: ${userProfile.equipmentAccess.join(', ')}
-Excluded Exercises: ${userProfile.exercisePreferences.excludedExercises.join(', ')}
-Health Constraints: ${userProfile.healthConstraints
+Equipment Access: ${userProfile.equipmentAccess.join(', ') || 'Full Gym'}
+Preferred Exercises: ${userProfile.exercisePreferences.preferredExercises.join(', ') || 'None listed'}
+Excluded/Disliked Exercises: ${userProfile.exercisePreferences.excludedExercises.join(', ') || 'None listed'}
+Health Constraints / Injury Profile: ${userProfile.healthConstraints
       .filter((c) => c.active)
       .map((c) => `${c.description} (${c.severity})`)
-      .join('; ')}
-Dietary Restrictions: ${userProfile.dietaryRestrictions.join(', ')}
+      .join('; ') || 'None'}
+Dietary Restrictions: ${userProfile.dietaryRestrictions.join(', ') || 'None'}
 </untrusted_user_profile>
 
 <untrusted_confirmed_memories>
