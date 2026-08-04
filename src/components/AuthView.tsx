@@ -87,8 +87,8 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
       <div className="w-full max-w-md relative z-10 space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#1E1E1E] border border-white/10 shadow-xl mb-2 text-[#FF5722]">
-            {mode === 'admin_signin' ? <Shield className="w-7 h-7 text-amber-400" /> : <Sparkles className="w-7 h-7 text-[#FF5722]" />}
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#1E1E1E] border border-white/10 shadow-xl mb-2 p-2.5 overflow-hidden">
+            {mode === 'admin_signin' ? <Shield className="w-7 h-7 text-amber-400" /> : <img src="/favicon.png" alt="FleetBuild Logo" className="w-full h-full object-contain" />}
           </div>
           <h1 className="text-3xl font-black tracking-tight text-white">FleetBuild</h1>
           <p className="text-xs text-white/60">

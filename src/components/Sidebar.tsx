@@ -89,8 +89,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* Logo */}
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#FF5722] to-[#FF8A65] flex items-center justify-center shadow-lg shadow-[#FF5722]/30 text-white font-bold text-xl">
-                  ⚡
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#FF5722] to-[#FF8A65] flex items-center justify-center shadow-lg shadow-[#FF5722]/30 p-2 overflow-hidden">
+                  <img src="/favicon.png" alt="FleetBuild Logo" className="w-full h-full object-contain" />
                 </div>
                 <div>
                   <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-1.5">

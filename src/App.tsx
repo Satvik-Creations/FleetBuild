@@ -141,8 +141,8 @@ export default function App() {
           setCurrentView('dashboard');
         }
       } catch (err) {
-        console.error('Session expired or invalid:', err);
         clearToken();
+        setUser(null);
       } finally {
         setIsAuthChecking(false);
       }
