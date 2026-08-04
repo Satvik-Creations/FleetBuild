@@ -154,6 +154,87 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
 
+          {/* Quick Access Fitness Modules */}
+          <div className="rounded-3xl bg-[#1E1E1E] p-6 sm:p-8 border border-white/10 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div>
+                <span className="text-xs uppercase font-bold text-white/50 tracking-wider">Platform Hub</span>
+                <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2 mt-0.5">
+                  <Sparkles className="w-5 h-5 text-[#FF5722]" />
+                  <span>FleetBuild Training Modules</span>
+                </h2>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <button
+                onClick={() => onNavigateToView('programs')}
+                className="p-4 rounded-2xl bg-[#121212] hover:bg-zinc-800 border border-white/10 hover:border-[#FF5722] text-left transition-all group"
+              >
+                <div className="w-9 h-9 rounded-xl bg-[#FF5722]/15 text-[#FF5722] flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                  <Dumbbell className="w-5 h-5" />
+                </div>
+                <p className="text-xs font-bold text-white group-hover:text-[#FF5722] transition-colors">4-Week Programs</p>
+                <p className="text-[10px] text-white/50">PPL, Upper/Lower, Shred</p>
+              </button>
+
+              <button
+                onClick={() => onNavigateToView('bodyfocus')}
+                className="p-4 rounded-2xl bg-[#121212] hover:bg-zinc-800 border border-white/10 hover:border-amber-400 text-left transition-all group"
+              >
+                <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                  <Target className="w-5 h-5" />
+                </div>
+                <p className="text-xs font-bold text-white group-hover:text-amber-400 transition-colors">Body Focus</p>
+                <p className="text-[10px] text-white/50">Muscle Isolation</p>
+              </button>
+
+              <button
+                onClick={() => onNavigateToView('library')}
+                className="p-4 rounded-2xl bg-[#121212] hover:bg-zinc-800 border border-white/10 hover:border-blue-400 text-left transition-all group"
+              >
+                <div className="w-9 h-9 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <p className="text-xs font-bold text-white group-hover:text-blue-400 transition-colors">Exercise Library</p>
+                <p className="text-[10px] text-white/50">Bio-mechanics Cues</p>
+              </button>
+
+              <button
+                onClick={() => onNavigateToView('planner')}
+                className="p-4 rounded-2xl bg-[#121212] hover:bg-zinc-800 border border-white/10 hover:border-emerald-400 text-left transition-all group"
+              >
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                  <Calendar className="w-5 h-5" />
+                </div>
+                <p className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors">Weekly Planner</p>
+                <p className="text-[10px] text-white/50">Calendar Schedule</p>
+              </button>
+
+              <button
+                onClick={() => onNavigateToView('nutrition')}
+                className="p-4 rounded-2xl bg-[#121212] hover:bg-zinc-800 border border-white/10 hover:border-[#FF5722] text-left transition-all group"
+              >
+                <div className="w-9 h-9 rounded-xl bg-[#FF5722]/15 text-[#FF5722] flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                  <Utensils className="w-5 h-5" />
+                </div>
+                <p className="text-xs font-bold text-white group-hover:text-[#FF5722] transition-colors">Nutrition Engine</p>
+                <p className="text-[10px] text-white/50">Calories & Macros</p>
+              </button>
+
+              <button
+                onClick={() => onNavigateToView('achievements')}
+                className="p-4 rounded-2xl bg-[#121212] hover:bg-zinc-800 border border-white/10 hover:border-amber-400 text-left transition-all group"
+              >
+                <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <p className="text-xs font-bold text-white group-hover:text-amber-400 transition-colors">Achievements</p>
+                <p className="text-[10px] text-white/50">Badges & Streaks</p>
+              </button>
+            </div>
+          </div>
+
           {/* Honest Empty State: Workout Sessions */}
           <div className="rounded-3xl bg-[#1E1E1E] p-8 border border-white/10 shadow-xl text-center space-y-4">
             <div className="w-12 h-12 rounded-2xl bg-[#121212] border border-white/10 text-white/40 flex items-center justify-center mx-auto">

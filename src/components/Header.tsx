@@ -1,6 +1,6 @@
 import React from 'react';
 import { ViewType } from '../types';
-import { Menu, Bot, Timer, Bell, Shield, User } from 'lucide-react';
+import { Menu, Bot, Timer, Bell, Shield, User, Search } from 'lucide-react';
 
 interface HeaderProps {
   currentView: ViewType;
@@ -11,6 +11,7 @@ interface HeaderProps {
   activeTimerSeconds: number | null;
   onOpenTimer: () => void;
   onNavigateToFleetBot: () => void;
+  onOpenSearch?: () => void;
   onSignOut: () => void;
 }
 
@@ -23,6 +24,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeTimerSeconds,
   onOpenTimer,
   onNavigateToFleetBot,
+  onOpenSearch,
   onSignOut,
 }) => {
   const titles: Record<ViewType, { title: string; subtitle: string }> = {
@@ -34,9 +36,33 @@ export const Header: React.FC<HeaderProps> = ({
       title: 'FleetBot AI Neural Coach',
       subtitle: 'Active memory engine tracking goals & auto-adapting routines.',
     },
+    programs: {
+      title: 'Workout Programs Catalog',
+      subtitle: 'Curated 4-week splits for muscle gain, strength, and fat loss.',
+    },
+    bodyfocus: {
+      title: 'Body Focus & Muscle Targeter',
+      subtitle: 'Anatomical targeting and custom isolation workout routines.',
+    },
+    library: {
+      title: 'Exercise & Technique Library',
+      subtitle: 'Searchable exercise database with AI technique breakdowns.',
+    },
+    planner: {
+      title: 'Weekly Training Planner',
+      subtitle: 'Calendar scheduler, rest day allocation, and AI periodization.',
+    },
     workout: {
-      title: 'Adaptive Workout Planner',
-      subtitle: 'Target set logging & live rest recovery timer.',
+      title: 'Adaptive Workout Builder',
+      subtitle: 'Target set logging & custom exercise composition.',
+    },
+    nutrition: {
+      title: 'Nutrition & Macro Engine',
+      subtitle: 'Daily calories, protein targets, and AI dietary guidance.',
+    },
+    achievements: {
+      title: 'Fitness Badges & Trophies',
+      subtitle: 'Gamified consistency milestones and streak progression.',
     },
     health: {
       title: 'Health & Biometrics Tracker',
@@ -105,6 +131,18 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Timer className="w-4 h-4" />
             <span>Rest: {formatTimer(activeTimerSeconds)}</span>
+          </button>
+        )}
+
+        {/* Global Search Button */}
+        {onOpenSearch && (
+          <button
+            onClick={onOpenSearch}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1E1E1E] border border-white/10 hover:border-amber-500/50 text-xs font-medium text-white/80 transition-all cursor-pointer"
+            title="Search FleetBuild"
+          >
+            <Search className="w-3 h-3 text-amber-400" />
+            <span className="hidden md:inline">Search</span>
           </button>
         )}
 

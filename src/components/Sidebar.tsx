@@ -1,6 +1,22 @@
 import React from 'react';
 import { ViewType } from '../types';
-import { LayoutDashboard, Bot, Dumbbell, Activity, User, Shield, LogOut, Sparkles, Settings } from 'lucide-react';
+import { 
+  LayoutDashboard, 
+  Bot, 
+  Dumbbell, 
+  Activity, 
+  User, 
+  Shield, 
+  LogOut, 
+  Sparkles, 
+  Settings,
+  Layers,
+  Target,
+  BookOpen,
+  Calendar,
+  Utensils,
+  Trophy
+} from 'lucide-react';
 
 interface SidebarProps {
   currentView: ViewType;
@@ -34,9 +50,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badge: 'AI Engine',
     },
     {
+      id: 'programs',
+      label: 'Workout Programs',
+      icon: <Layers className="w-5 h-5" />,
+      badge: '4-Week',
+    },
+    {
+      id: 'bodyfocus',
+      label: 'Body Focus',
+      icon: <Target className="w-5 h-5" />,
+    },
+    {
+      id: 'library',
+      label: 'Exercise Library',
+      icon: <BookOpen className="w-5 h-5" />,
+    },
+    {
+      id: 'planner',
+      label: 'Weekly Planner',
+      icon: <Calendar className="w-5 h-5" />,
+    },
+    {
       id: 'workout',
-      label: 'Workout Planner',
+      label: 'Workout Builder',
       icon: <Dumbbell className="w-5 h-5" />,
+    },
+    {
+      id: 'nutrition',
+      label: 'Nutrition & Protein',
+      icon: <Utensils className="w-5 h-5" />,
+    },
+    {
+      id: 'achievements',
+      label: 'Achievements',
+      icon: <Trophy className="w-5 h-5" />,
+      badge: 'Badges',
     },
     {
       id: 'health',
@@ -53,7 +101,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'account',
       label: 'Account Settings',
       icon: <Settings className="w-5 h-5" />,
-      badge: 'Settings',
     },
   ];
 

@@ -14,6 +14,16 @@ import { WorkoutPlannerView } from './components/WorkoutPlannerView';
 import { HealthTrackerView } from './components/HealthTrackerView';
 import { ProfileView } from './components/ProfileView';
 import { AccountManager } from './components/AccountManager';
+
+import { WorkoutProgramsView } from './components/WorkoutProgramsView';
+import { BodyFocusView } from './components/BodyFocusView';
+import { ExerciseLibraryView } from './components/ExerciseLibraryView';
+import { WorkoutSessionModal } from './components/WorkoutSessionModal';
+import { WeeklyPlannerView } from './components/WeeklyPlannerView';
+import { NutritionView } from './components/NutritionView';
+import { AchievementsView } from './components/AchievementsView';
+import { GlobalSearchModal } from './components/GlobalSearchModal';
+
 import { Zap, Loader2 } from 'lucide-react';
 
 const defaultEmptyProfile: UserProfile = {
@@ -76,6 +86,12 @@ const defaultEmptyDailyMetrics: DailyMetrics = {
   streakDays: 1,
   caloriesConsumed: 0,
   calorieTarget: 2000,
+  proteinGrams: 0,
+  proteinTarget: 160,
+  carbsGrams: 0,
+  carbsTarget: 220,
+  fatGrams: 0,
+  fatTarget: 65,
   waterLiters: 0,
   waterTarget: 2.5,
   sleepHours: 8,
@@ -90,9 +106,11 @@ export default function App() {
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [isOnboardingPending, setIsOnboardingPending] = useState(false);
 
-  // Navigation State
+  // Navigation & Search State
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [activeSessionPlan, setActiveSessionPlan] = useState<WorkoutPlan | null>(null);
 
   // App Core State
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -378,6 +396,7 @@ export default function App() {
             activeTimerSeconds={isTimerRunning ? restTimerSeconds : null}
             onOpenTimer={() => setCurrentView('workout')}
             onNavigateToFleetBot={() => setCurrentView('fleetbot')}
+            onOpenSearch={() => setIsSearchOpen(true)}
             onSignOut={handleSignOut}
           />
 
@@ -392,6 +411,80 @@ export default function App() {
                 userProfile={userProfile}
                 onNavigateToView={setCurrentView}
               />
+            )}
+
+            {currentView === 'programs' && (
+              <WorkoutProgramsView
+                onSelectPlan={(plan) => {
+                  setCurrentWorkoutPlan(plan);
+                  setCurrentView('workout');
+                }}
+                onStartSession={(plan) => {
+                  setActiveSessionPlan(plan);
+                }}
+                currentPlanId={currentWorkoutPlan.id}
+                userGoal={userProfile.fitnessGoal?.title}
+                showToast={showToast}
+              />
+            )}
+
+            {currentView === 'bodyfocus' && (
+              <BodyFocusView
+                onSelectPlan={(plan) => {
+                  setCurrentWorkoutPlan(plan);
+                  setCurrentView('workout');
+                }}
+                onStartSession={(plan) => {
+                  setActiveSessionPlan(plan);
+                }}
+                showToast={showToast}
+              />
+            )}
+
+            {currentView === 'library' && (
+              <ExerciseLibraryView
+                onAddExerciseToPlan={(ex) => {
+                  setCurrentWorkoutPlan((prev) => ({
+                    ...prev,
+                    exercises: [
+                      ...prev.exercises,
+                      {
+                        id: `added-${Date.now()}`,
+                        name: ex.name,
+                        targetMuscle: ex.targetMuscle,
+                        sets: ex.sets || 3,
+                        reps: ex.reps || '10-12',
+                        weight: ex.weight || 'Moderate',
+                      },
+                    ],
+                  }));
+                }}
+                showToast={showToast}
+              />
+            )}
+
+            {currentView === 'planner' && (
+              <WeeklyPlannerView
+                onSelectPlan={(plan) => {
+                  setCurrentWorkoutPlan(plan);
+                  setCurrentView('workout');
+                }}
+                userGoal={userProfile.fitnessGoal?.title}
+                showToast={showToast}
+              />
+            )}
+
+            {currentView === 'nutrition' && (
+              <NutritionView
+                metrics={dailyMetrics}
+                onUpdateMetrics={(updated) => setDailyMetrics((prev) => ({ ...prev, ...updated }))}
+                userGoal={userProfile.fitnessGoal?.title}
+                showToast={showToast}
+              />
+            )}
+
+            {currentView === 'achievements' && (
+              <AchievementsView />
             )}
 
             {currentView === 'fleetbot' && (
@@ -472,6 +565,33 @@ export default function App() {
         </div>
 
       </div>
+
+      {/* Global Modals */}
+      {isSearchOpen && (
+        <GlobalSearchModal
+          onClose={() => setIsSearchOpen(false)}
+          onSelectView={(v) => setCurrentView(v)}
+          onSelectPlan={(p) => {
+            setCurrentWorkoutPlan(p);
+            setCurrentView('workout');
+          }}
+        />
+      )}
+
+      {activeSessionPlan && (
+        <WorkoutSessionModal
+          workoutPlan={activeSessionPlan}
+          onClose={() => setActiveSessionPlan(null)}
+          onCompleteSession={({ durationMinutes, caloriesBurned }) => {
+            setDailyMetrics((prev) => ({
+              ...prev,
+              caloriesConsumed: Math.max(0, prev.caloriesConsumed + caloriesBurned),
+            }));
+            showToast(`Recorded Workout: ${durationMinutes} mins (~${caloriesBurned} kcal burned)!`);
+          }}
+          showToast={showToast}
+        />
+      )}
     </div>
   );
 }
