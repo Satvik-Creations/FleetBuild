@@ -22,6 +22,7 @@ import { WorkoutSessionModal } from './components/WorkoutSessionModal';
 import { WeeklyPlannerView } from './components/WeeklyPlannerView';
 import { NutritionView } from './components/NutritionView';
 import { AchievementsView } from './components/AchievementsView';
+import { StepTrackerView } from './components/StepTrackerView';
 import { GlobalSearchModal } from './components/GlobalSearchModal';
 
 import { Zap, Loader2 } from 'lucide-react';
@@ -410,6 +411,14 @@ export default function App() {
               <DashboardView
                 userProfile={userProfile}
                 onNavigateToView={setCurrentView}
+              />
+            )}
+
+            {currentView === 'steptracker' && (
+              <StepTrackerView
+                metrics={dailyMetrics}
+                onUpdateMetrics={(updated) => setDailyMetrics((prev) => ({ ...prev, ...updated }))}
+                showToast={showToast}
               />
             )}
 

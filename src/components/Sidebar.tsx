@@ -3,6 +3,7 @@ import { ViewType } from '../types';
 import { 
   LayoutDashboard, 
   Bot, 
+  Footprints,
   Dumbbell, 
   Activity, 
   User, 
@@ -48,6 +49,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'FleetBot Coach',
       icon: <Bot className="w-5 h-5" />,
       badge: 'AI Engine',
+    },
+    {
+      id: 'steptracker',
+      label: 'Step & Calorie Counter',
+      icon: <Footprints className="w-5 h-5" />,
+      badge: 'Pedometer',
     },
     {
       id: 'programs',

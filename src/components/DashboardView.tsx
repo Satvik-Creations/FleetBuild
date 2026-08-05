@@ -1,7 +1,7 @@
 import React from 'react';
 import { UserProfile } from '../domain/models';
 import { ViewType } from '../types';
-import { Dumbbell, Target, AlertTriangle, Bot, Utensils, Plus, Calendar, Activity, Sparkles, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Dumbbell, Target, AlertTriangle, Bot, Utensils, Plus, Calendar, Activity, Sparkles, ArrowRight, ShieldCheck, Footprints } from 'lucide-react';
 
 interface DashboardViewProps {
   userProfile: UserProfile;
@@ -166,7 +166,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <button
+                onClick={() => onNavigateToView('steptracker')}
+                className="p-4 rounded-2xl bg-[#121212] hover:bg-zinc-800 border border-white/10 hover:border-[#FF5722] text-left transition-all group"
+              >
+                <div className="w-9 h-9 rounded-xl bg-[#FF5722]/15 text-[#FF5722] flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                  <Footprints className="w-5 h-5" />
+                </div>
+                <p className="text-xs font-bold text-white group-hover:text-[#FF5722] transition-colors">Step & Calorie Counter</p>
+                <p className="text-[10px] text-white/50">Pedometer & Distance</p>
+              </button>
               <button
                 onClick={() => onNavigateToView('programs')}
                 className="p-4 rounded-2xl bg-[#121212] hover:bg-zinc-800 border border-white/10 hover:border-[#FF5722] text-left transition-all group"

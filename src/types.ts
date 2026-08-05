@@ -1,6 +1,7 @@
 export type ViewType = 
   | 'dashboard' 
   | 'fleetbot' 
+  | 'steptracker'
   | 'workout' 
   | 'programs' 
   | 'bodyfocus' 
@@ -96,6 +97,8 @@ export interface DailyMetrics {
   sleepHours: number;
   hrvMs: number;
   recoveryScore: number;
+  stepsCount?: number;
+  stepTarget?: number;
 }
 
 export interface Achievement {
