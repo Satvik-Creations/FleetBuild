@@ -1,7 +1,7 @@
 import React from 'react';
 import { UserProfile } from '../domain/models';
 import { ViewType } from '../types';
-import { Dumbbell, Target, AlertTriangle, Bot, Utensils, Plus, Calendar, Activity, Sparkles, ArrowRight, ShieldCheck, Footprints } from 'lucide-react';
+import { Dumbbell, Target, AlertTriangle, Bot, Utensils, Plus, Calendar, Activity, Sparkles, ArrowRight, ShieldCheck, Footprints, Video } from 'lucide-react';
 
 interface DashboardViewProps {
   userProfile: UserProfile;
@@ -39,8 +39,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <div className="flex items-center gap-3">
             <button
+              onClick={() => onNavigateToView('livecoach')}
+              className="px-5 py-3 rounded-2xl bg-gradient-to-r from-[#FF5722] to-[#E64A19] text-white text-sm font-bold flex items-center gap-2 transition-all duration-300 shadow-xl shadow-[#FF5722]/25 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+            >
+              <Video className="w-4 h-4 animate-pulse" />
+              <span>Live 1-Min Coach</span>
+            </button>
+            <button
               onClick={() => onNavigateToView('fleetbot')}
-              className="px-5 py-3 rounded-2xl bg-[#121212] border border-white/10 hover:border-[#FF5722] text-white text-sm font-semibold flex items-center gap-2 transition-all duration-300 hover:shadow-lg hover:shadow-[#FF5722]/10"
+              className="px-4 py-3 rounded-2xl bg-[#121212] border border-white/10 hover:border-[#FF5722] text-white text-sm font-semibold flex items-center gap-2 transition-all duration-300 hover:shadow-lg hover:shadow-[#FF5722]/10"
             >
               <Bot className="w-4 h-4 text-[#FF5722]" />
               <span>Consult FleetBot</span>
@@ -167,6 +174,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <button
+                onClick={() => onNavigateToView('livecoach')}
+                className="p-4 rounded-2xl bg-gradient-to-br from-[#241815] to-[#121212] hover:bg-zinc-800 border border-[#FF5722]/40 hover:border-[#FF5722] text-left transition-all group cursor-pointer relative overflow-hidden"
+              >
+                <div className="w-9 h-9 rounded-xl bg-[#FF5722] text-white flex items-center justify-center mb-2 group-hover:scale-110 transition-transform shadow-md shadow-[#FF5722]/30">
+                  <Video className="w-5 h-5" />
+                </div>
+                <p className="text-xs font-bold text-white group-hover:text-[#FF5722] transition-colors">FleetBuild Live Coach</p>
+                <p className="text-[10px] text-[#FF5722] font-semibold">1-Min Video Call</p>
+              </button>
               <button
                 onClick={() => onNavigateToView('steptracker')}
                 className="p-4 rounded-2xl bg-[#121212] hover:bg-zinc-800 border border-white/10 hover:border-[#FF5722] text-left transition-all group"

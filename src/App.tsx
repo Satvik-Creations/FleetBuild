@@ -23,6 +23,7 @@ import { WeeklyPlannerView } from './components/WeeklyPlannerView';
 import { NutritionView } from './components/NutritionView';
 import { AchievementsView } from './components/AchievementsView';
 import { StepTrackerView } from './components/StepTrackerView';
+import { LiveCoachView } from './components/LiveCoachView';
 import { GlobalSearchModal } from './components/GlobalSearchModal';
 
 import { Zap, Loader2 } from 'lucide-react';
@@ -420,6 +421,10 @@ export default function App() {
                 onUpdateMetrics={(updated) => setDailyMetrics((prev) => ({ ...prev, ...updated }))}
                 showToast={showToast}
               />
+            )}
+
+            {currentView === 'livecoach' && (
+              <LiveCoachView showToast={showToast} />
             )}
 
             {currentView === 'programs' && (

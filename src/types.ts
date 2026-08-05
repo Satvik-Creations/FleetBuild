@@ -1,6 +1,7 @@
 export type ViewType = 
   | 'dashboard' 
   | 'fleetbot' 
+  | 'livecoach'
   | 'steptracker'
   | 'workout' 
   | 'programs' 

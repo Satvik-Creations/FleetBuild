@@ -55,10 +55,42 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
         {/* Results Area */}
         <div className="p-6 overflow-y-auto space-y-6">
           {!query ? (
-            <div className="text-center py-8 text-zinc-500 space-y-2 text-xs">
-              <Search className="w-8 h-8 text-zinc-600 mx-auto" />
-              <p className="font-semibold text-zinc-400">Type to search FleetBuild Fitness Platform</p>
-              <p>Try "Push Pull", "Bench Press", "Chest", or "Fat Loss"</p>
+            <div className="space-y-4">
+              <div className="text-center py-4 text-zinc-500 space-y-2 text-xs">
+                <Search className="w-8 h-8 text-zinc-600 mx-auto" />
+                <p className="font-semibold text-zinc-400">Type to search FleetBuild Fitness Platform</p>
+                <p>Try "Coach", "Steps", "Push Pull", "Bench Press", "Chest"</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-zinc-800">
+                <button
+                  onClick={() => {
+                    onSelectView('livecoach');
+                    onClose();
+                  }}
+                  className="p-3 bg-zinc-950 border border-zinc-800 hover:border-[#FF5722] rounded-xl text-left cursor-pointer transition-all"
+                >
+                  <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#FF5722]" />
+                    FleetBuild Live Coach
+                  </p>
+                  <p className="text-[10px] text-zinc-500 mt-0.5">1-Min Video Call Consultation</p>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onSelectView('steptracker');
+                    onClose();
+                  }}
+                  className="p-3 bg-zinc-950 border border-zinc-800 hover:border-[#FF5722] rounded-xl text-left cursor-pointer transition-all"
+                >
+                  <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#FF5722]" />
+                    Step & Calorie Counter
+                  </p>
+                  <p className="text-[10px] text-zinc-500 mt-0.5">Pedometer & Distance Tracker</p>
+                </button>
+              </div>
             </div>
           ) : (
             <>

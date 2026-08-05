@@ -1,6 +1,8 @@
 {
   "name": "FleetBuild",
   "description": "AI-first, adaptive personal fitness platform with FleetBot coach and dynamic memory engine.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": [
+    "microphone"
+  ],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
