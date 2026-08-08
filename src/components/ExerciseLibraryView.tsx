@@ -17,11 +17,13 @@ import {
 } from 'lucide-react';
 
 interface ExerciseLibraryViewProps {
+  currentPlan?: WorkoutPlan;
   onAddExerciseToPlan?: (exercise: ExerciseDetail) => void;
   showToast: (msg: string) => void;
 }
 
 export const ExerciseLibraryView: React.FC<ExerciseLibraryViewProps> = ({
+  currentPlan,
   onAddExerciseToPlan,
   showToast
 }) => {
@@ -206,18 +208,35 @@ Cover:
                 <Sparkles className="w-3.5 h-3.5" />
                 AI
               </button>
-              {onAddExerciseToPlan && (
-                <button
-                  onClick={() => {
-                    onAddExerciseToPlan(ex);
-                    showToast(`Added ${ex.name} to active plan!`);
-                  }}
-                  className="p-2 bg-[#FF5722] hover:bg-[#FF5722]/90 text-white rounded-xl shadow-md transition-colors"
-                  title="Add to Workout Plan"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              )}
+              {onAddExerciseToPlan && (() => {
+                const isAlreadyInPlan = currentPlan?.exercises?.some(
+                  (e) => e.name.trim().toLowerCase() === ex.name.trim().toLowerCase()
+                );
+
+                if (isAlreadyInPlan) {
+                  return (
+                    <button
+                      onClick={() => showToast(`${ex.name} is already in your active plan!`)}
+                      className="p-2 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 rounded-xl shadow-md transition-colors"
+                      title="Already added to Active Plan"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                    </button>
+                  );
+                }
+
+                return (
+                  <button
+                    onClick={() => {
+                      onAddExerciseToPlan(ex);
+                    }}
+                    className="p-2 bg-[#FF5722] hover:bg-[#FF5722]/90 text-white rounded-xl shadow-md transition-colors"
+                    title="Add to Workout Plan"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                );
+              })()}
             </div>
           </div>
         ))}

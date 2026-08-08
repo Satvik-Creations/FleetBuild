@@ -457,7 +457,17 @@ export default function App() {
 
             {currentView === 'library' && (
               <ExerciseLibraryView
+                currentPlan={currentWorkoutPlan}
                 onAddExerciseToPlan={(ex) => {
+                  const alreadyExists = currentWorkoutPlan.exercises.some(
+                    (e) => e.name.trim().toLowerCase() === ex.name.trim().toLowerCase()
+                  );
+
+                  if (alreadyExists) {
+                    showToast(`${ex.name} is already in your active plan!`);
+                    return;
+                  }
+
                   setCurrentWorkoutPlan((prev) => ({
                     ...prev,
                     exercises: [
@@ -472,6 +482,7 @@ export default function App() {
                       },
                     ],
                   }));
+                  showToast(`Added ${ex.name} to active plan!`);
                 }}
                 showToast={showToast}
               />
