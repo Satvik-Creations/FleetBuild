@@ -43,7 +43,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               className="px-5 py-3 rounded-2xl bg-gradient-to-r from-[#FF5722] to-[#E64A19] text-white text-sm font-bold flex items-center gap-2 transition-all duration-300 shadow-xl shadow-[#FF5722]/25 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
             >
               <PhoneCall className="w-4 h-4 animate-pulse" />
-              <span>AI Voice Call</span>
+              <span>FleetBuild Voice Call</span>
             </button>
             <button
               onClick={() => onNavigateToView('fleetbot')}
@@ -181,8 +181,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div className="w-9 h-9 rounded-xl bg-[#FF5722] text-white flex items-center justify-center mb-2 group-hover:scale-110 transition-transform shadow-md shadow-[#FF5722]/30">
                   <PhoneCall className="w-5 h-5" />
                 </div>
-                <p className="text-xs font-bold text-white group-hover:text-[#FF5722] transition-colors">AI Trainer Voice Call</p>
-                <p className="text-[10px] text-[#FF5722] font-semibold">1-Min AI Voice Call</p>
+                <p className="text-xs font-bold text-white group-hover:text-[#FF5722] transition-colors">FleetBuild AI Trainer</p>
+                <p className="text-[10px] text-[#FF5722] font-semibold">3-Min AI Voice Call</p>
               </button>
               <button
                 onClick={() => onNavigateToView('steptracker')}

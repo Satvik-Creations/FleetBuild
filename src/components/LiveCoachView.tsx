@@ -13,11 +13,11 @@ import {
   AlertCircle,
   Activity,
   CheckCircle2,
-  Send,
   Radio,
   Bot,
   User,
-  MessageSquare
+  RadioTower,
+  AudioLines
 } from 'lucide-react';
 
 interface LiveCoachViewProps {
@@ -40,14 +40,16 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
   const [selectedTopic, setSelectedTopic] = useState<string>('Form & Movement Check');
   const [statusMessage, setStatusMessage] = useState<string>('Ready for voice call');
   
-  const [userInputText, setUserInputText] = useState<string>('');
   const [isCoachSpeaking, setIsCoachSpeaking] = useState<boolean>(false);
+  const [isUserListening, setIsUserListening] = useState<boolean>(false);
   const [isLoadingReply, setIsLoadingReply] = useState<boolean>(false);
   const [transcripts, setTranscripts] = useState<VoiceTranscriptMessage[]>([]);
+  const [voiceInterpretedText, setVoiceInterpretedText] = useState<string>('');
 
   const timerRef = useRef<any>(null);
   const audioCleanupRef = useRef<(() => void) | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const recognitionRef = useRef<any>(null);
 
   const topics = [
     { title: 'Form & Movement Check', desc: 'Posture, spinal alignment & rep cues' },
@@ -151,34 +153,46 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
     } catch (e) {}
   };
 
-  // Deep Male Voice Speech Synthesis
+  // Natural Deep Male Voice Speech Synthesis with Web Speech API
   const speakTextDeepMaleVoice = (text: string) => {
     if (!('speechSynthesis' in window) || !isSpeakerOn) return;
 
     try {
-      window.speechSynthesis.cancel(); // Stop any active speech
+      window.speechSynthesis.cancel(); // Clear any ongoing speech
 
       const utterance = new SpeechSynthesisUtterance(text);
-      const voices = window.speechSynthesis.getVoices();
+      
+      const setVoice = () => {
+        const voices = window.speechSynthesis.getVoices();
+        
+        // Prioritize natural sounding deep male voices across Chrome, Edge, Safari, Firefox
+        const deepMaleVoice = voices.find(
+          (v) =>
+            v.name.toLowerCase().includes('google uk english male') ||
+            v.name.toLowerCase().includes('david') ||
+            v.name.toLowerCase().includes('alex') ||
+            v.name.toLowerCase().includes('daniel') ||
+            v.name.toLowerCase().includes('george') ||
+            v.name.toLowerCase().includes('male') ||
+            (v.lang.startsWith('en') && !v.name.toLowerCase().includes('female') && !v.name.toLowerCase().includes('zira') && !v.name.toLowerCase().includes('susan'))
+        );
 
-      // Find deep male voices if available (e.g., David, Alex, Daniel, Male)
-      const maleVoice = voices.find(
-        (v) =>
-          v.name.toLowerCase().includes('david') ||
-          v.name.toLowerCase().includes('alex') ||
-          v.name.toLowerCase().includes('daniel') ||
-          v.name.toLowerCase().includes('uk english male') ||
-          v.name.toLowerCase().includes('male') ||
-          (v.lang.startsWith('en') && !v.name.toLowerCase().includes('female') && !v.name.toLowerCase().includes('zira'))
-      );
+        if (deepMaleVoice) {
+          utterance.voice = deepMaleVoice;
+        }
+      };
 
-      if (maleVoice) {
-        utterance.voice = maleVoice;
+      if (window.speechSynthesis.getVoices().length > 0) {
+        setVoice();
+      } else {
+        window.speechSynthesis.onvoiceschanged = () => {
+          setVoice();
+        };
       }
 
-      // Pitch set low (0.75) for a deep, commanding male fitness trainer tone
-      utterance.pitch = 0.75;
-      utterance.rate = 0.95; // Authoritative, energetic rate
+      // Tuned parameters for realistic, human-like deep male trainer voice
+      utterance.pitch = 0.82; // Warm, deep male pitch
+      utterance.rate = 0.96;  // Energetic, confident tempo
       utterance.volume = isSpeakerOn ? 1.0 : 0.0;
 
       utterance.onstart = () => setIsCoachSpeaking(true);
@@ -192,22 +206,111 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
     }
   };
 
-  // Auto scroll chat transcript
+  // Initialize Microphone Speech Recognition for Live Continuous Voice Input
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (SpeechRecognition && callState === 'CONNECTED' && !isMuted) {
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+
+        recognition.onstart = () => {
+          setIsUserListening(true);
+        };
+
+        recognition.onresult = (event: any) => {
+          let interimTranscript = '';
+          let finalTranscript = '';
+
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              finalTranscript += event.results[i][0].transcript;
+            } else {
+              interimTranscript += event.results[i][0].transcript;
+            }
+          }
+
+          if (interimTranscript) {
+            setVoiceInterpretedText(interimTranscript);
+          }
+
+          if (finalTranscript.trim()) {
+            const spokenMessage = finalTranscript.trim();
+            setVoiceInterpretedText('');
+
+            // Stop speech synthesis if coach is currently talking so trainer listens to user
+            if ('speechSynthesis' in window) {
+              window.speechSynthesis.cancel();
+              setIsCoachSpeaking(false);
+            }
+
+            setTranscripts((prev) => [
+              ...prev,
+              { sender: 'user', text: spokenMessage, time: getCurrentTime() },
+            ]);
+
+            fetchCoachVoiceResponse(spokenMessage);
+          }
+        };
+
+        recognition.onerror = (err: any) => {
+          console.warn('Speech recognition status:', err?.error);
+        };
+
+        recognition.onend = () => {
+          setIsUserListening(false);
+          // Restart listening if call is still active & not muted
+          if (callState === 'CONNECTED' && !isMuted && recognitionRef.current) {
+            try {
+              recognitionRef.current.start();
+            } catch (_) {}
+          }
+        };
+
+        recognition.start();
+        recognitionRef.current = recognition;
+      } catch (err) {
+        console.warn('Could not start microphone speech recognition:', err);
+      }
+    } else {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (_) {}
+        recognitionRef.current = null;
+      }
+      setIsUserListening(false);
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (_) {}
+        recognitionRef.current = null;
+      }
+    };
+  }, [callState, isMuted]);
+
+  // Auto scroll transcript log
   useEffect(() => {
     if (chatScrollRef.current) {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
     }
-  }, [transcripts]);
+  }, [transcripts, voiceInterpretedText]);
 
-  // Timer Effect for 1-Minute Session Limit
+  // Timer Effect for 3-Minute Session Limit (180 seconds)
   useEffect(() => {
     if (callState === 'CONNECTED') {
       setCallSeconds(0);
       timerRef.current = setInterval(() => {
         setCallSeconds((prev) => {
-          if (prev >= 60) {
-            handleEndCall('1-Minute Voice Consultation Complete');
-            return 60;
+          if (prev >= 180) { // 3 Minutes limit
+            handleEndCall('3-Minute AI Voice Consultation Complete');
+            return 180;
           }
           return prev + 1;
         });
@@ -221,7 +324,7 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
     };
   }, [callState]);
 
-  // Clean up ringtone & speech on unmount or state change
+  // Clean up audio on unmount
   useEffect(() => {
     return () => {
       if (audioCleanupRef.current) {
@@ -230,6 +333,11 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
       }
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
+      }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (_) {}
       }
     };
   }, [callState]);
@@ -249,7 +357,7 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
 
       if (res.ok) {
         const data = await res.json();
-        const reply = data.reply || "FleetBot Coach here! Stay focused, execute with precision, and finish strong!";
+        const reply = data.reply || "FleetBuild AI Fitness Trainer here! Squeeze your core, drive through your feet, and make this rep count!";
         
         setTranscripts((prev) => [
           ...prev,
@@ -258,7 +366,7 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
 
         speakTextDeepMaleVoice(reply);
       } else {
-        const fallbackText = "FleetBot Coach here! Lock your core, breathe steadily, and give me maximum power on this set!";
+        const fallbackText = "FleetBuild AI Fitness Trainer here! Keep your posture upright, breathe steadily, and execute with maximum control!";
         setTranscripts((prev) => [
           ...prev,
           { sender: 'coach', text: fallbackText, time: getCurrentTime() },
@@ -266,7 +374,7 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
         speakTextDeepMaleVoice(fallbackText);
       }
     } catch (err) {
-      const fallbackText = "FleetBot Coach here! Drive through your heels and squeeze at the top of the contraction!";
+      const fallbackText = "FleetBuild AI Fitness Trainer on the line! Maintain tension in your legs and explode upward!";
       setTranscripts((prev) => [
         ...prev,
         { sender: 'coach', text: fallbackText, time: getCurrentTime() },
@@ -282,8 +390,8 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
     if (callState !== 'IDLE') return;
 
     setCallState('RINGING');
-    setStatusMessage('Dialing FleetBot AI Voice Coach...');
-    if (showToast) showToast('Dialing FleetBot AI Fitness Trainer Voice Call...');
+    setStatusMessage('Dialing FleetBuild AI Fitness Trainer...');
+    if (showToast) showToast('Dialing FleetBuild AI Fitness Trainer...');
 
     audioCleanupRef.current = playRingtone();
 
@@ -298,16 +406,16 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
           audioCleanupRef.current = null;
         }
         setCallState('CONNECTED');
-        setStatusMessage('Voice Call Connected (fish-audio/s2.1-pro-free:free)');
-        if (showToast) showToast('Voice Call Connected! Live 1-minute consultation active.');
+        setStatusMessage('Voice Call Active (fish-audio/s2.1-pro-free:free)');
+        if (showToast) showToast('Connected! Live 3-minute voice consultation active. Speak into your mic!');
 
         // Initial Greeting from Coach
-        const initialGreeting = `Yo! FleetBot AI Fitness Trainer on the line. I'm locked in for our 1-minute voice check. What's your focus today: ${selectedTopic}?`;
+        const initialGreeting = `Yo athlete! FleetBuild AI Fitness Trainer here. I am listening live to your voice. What are we targeting today: ${selectedTopic}?`;
         setTranscripts([
           { sender: 'coach', text: initialGreeting, time: getCurrentTime() },
         ]);
         speakTextDeepMaleVoice(initialGreeting);
-      }, 4000);
+      }, 3800);
     } else if (caseNum === 2) {
       // 15% Call Decline
       setTimeout(() => {
@@ -317,8 +425,8 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
         }
         playCutTone();
         setCallState('DECLINED');
-        setStatusMessage('Coach Unavailable (Call Declined)');
-        if (showToast) showToast('Coach declined the call. Please try again.');
+        setStatusMessage('Trainer Unavailable (Call Declined)');
+        if (showToast) showToast('FleetBuild AI Fitness Trainer declined. Please try again.');
 
         setTimeout(() => {
           setCallState('IDLE');
@@ -334,8 +442,8 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
         }
         playBusyTone();
         setCallState('BUSY');
-        setStatusMessage('Line Busy — Coach in another session');
-        if (showToast) showToast('Line Busy: Coach is currently consulting another athlete.');
+        setStatusMessage('Line Busy — Trainer in another consultation');
+        if (showToast) showToast('Line Busy: FleetBuild AI Fitness Trainer is consulting another athlete.');
 
         setTimeout(() => {
           setCallState('IDLE');
@@ -353,7 +461,13 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (_) {}
+    }
     setIsCoachSpeaking(false);
+    setIsUserListening(false);
     playCutTone();
     setCallState('ENDED');
     setStatusMessage(reason);
@@ -364,39 +478,26 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
       setStatusMessage('Ready for voice call');
       setCallSeconds(0);
       setTranscripts([]);
+      setVoiceInterpretedText('');
     }, 2000);
   };
 
-  // User message submit during call
-  const handleSendMessage = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!userInputText.trim() || callState !== 'CONNECTED' || isMuted) return;
-
-    const userMsg = userInputText.trim();
-    setUserInputText('');
-
-    setTranscripts((prev) => [
-      ...prev,
-      { sender: 'user', text: userMsg, time: getCurrentTime() },
-    ]);
-
-    fetchCoachVoiceResponse(userMsg);
-  };
-
-  // Quick topic trigger
+  // Quick topic trigger during call
   const handleSelectTopic = (topicTitle: string) => {
     setSelectedTopic(topicTitle);
-    if (showToast) showToast(`Selected topic: ${topicTitle}`);
+    if (showToast) showToast(`Focus topic set: ${topicTitle}`);
 
     if (callState === 'CONNECTED') {
+      const topicMsg = `Coach, give me your live advice on ${topicTitle}.`;
       setTranscripts((prev) => [
         ...prev,
-        { sender: 'user', text: `Coach, guide me on: ${topicTitle}`, time: getCurrentTime() },
+        { sender: 'user', text: topicMsg, time: getCurrentTime() },
       ]);
-      fetchCoachVoiceResponse(undefined, topicTitle);
+      fetchCoachVoiceResponse(topicMsg, topicTitle);
     }
   };
 
+  // Format 3 minute timer `03:00`
   const formatTimer = (secs: number) => {
     const m = Math.floor(secs / 60);
     const s = secs % 60;
@@ -413,13 +514,13 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
           <div className="space-y-2 max-w-xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FF5722]/20 border border-[#FF5722]/40 text-[#FF5722] text-xs font-bold uppercase tracking-wider">
               <Radio className="w-3.5 h-3.5 animate-pulse" />
-              <span>AI Fitness Trainer Voice Call</span>
+              <span>3-Minute Live Voice Assistant</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              FleetBot AI Fitness Trainer Voice Call
+              FleetBuild AI Fitness Trainer
             </h1>
             <p className="text-sm font-semibold text-white/90 leading-relaxed">
-              Real-time deep male voice consultation powered by <span className="text-[#FF5722] font-bold font-mono">fish-audio/s2.1-pro-free:free</span> model.
+              Speak into your microphone in real time. Powered by <span className="text-[#FF5722] font-bold font-mono">fish-audio/s2.1-pro-free:free</span> deep male voice model.
             </p>
           </div>
 
@@ -441,10 +542,10 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
         </div>
       </div>
 
-      {/* Main Voice Call Console Area */}
+      {/* Main Voice Assistant Call Console Area */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* Left Interactive Voice Stage (8 Cols) */}
+        {/* Left Voice Stage (8 Cols) */}
         <div className="lg:col-span-8 flex flex-col items-center space-y-4">
           <div className="w-full bg-[#1A1A1A] border border-white/10 rounded-3xl p-4 sm:p-6 shadow-2xl space-y-6 relative overflow-hidden">
             
@@ -453,7 +554,7 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
                 <div>
-                  <span className="font-bold text-white tracking-wide block">FleetBot AI Fitness Trainer</span>
+                  <span className="font-bold text-white tracking-wide block">FleetBuild AI Fitness Trainer</span>
                   <span className="text-[10px] text-[#FF5722] font-mono">fish-audio/s2.1-pro-free:free</span>
                 </div>
               </div>
@@ -462,27 +563,27 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
                 {callState === 'CONNECTED' && (
                   <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 border border-emerald-500/30 font-mono text-emerald-400 font-bold text-xs shadow-md">
                     <Clock className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                    <span>{formatTimer(callSeconds)} / 01:00</span>
+                    <span>{formatTimer(callSeconds)} / 03:00</span>
                   </div>
                 )}
                 <span className="hidden sm:inline-block px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] text-white/70 font-mono">
-                  HD Voice Audio
+                  Realtime Mic Input Active
                 </span>
               </div>
             </div>
 
             {/* Voice Stage Screen Frame */}
-            <div className="relative w-full min-h-[340px] rounded-2xl overflow-hidden bg-gradient-to-b from-[#121212] via-[#1A1A1A] to-[#121212] border border-white/10 flex flex-col items-center justify-between p-6 shadow-2xl">
+            <div className="relative w-full min-h-[380px] rounded-2xl overflow-hidden bg-gradient-to-b from-[#121212] via-[#1A1A1A] to-[#121212] border border-white/10 flex flex-col items-center justify-between p-6 shadow-2xl">
               
               {/* CONNECTED LIVE VOICE STATE */}
               {callState === 'CONNECTED' && (
                 <div className="w-full h-full flex flex-col items-center justify-between space-y-6 animate-fade-in my-auto">
                   
-                  {/* Coach Avatar with Deep Male Trainer Persona */}
+                  {/* Trainer Avatar & Audio Visualizer Rings */}
                   <div className="relative flex flex-col items-center justify-center space-y-3 pt-2">
                     {/* Live Equalizer Voice Activity Pulse Rings */}
-                    <div className={`absolute w-36 h-36 rounded-full bg-[#FF5722]/20 transition-all duration-300 ${isCoachSpeaking ? 'scale-125 opacity-100 animate-ping' : 'scale-100 opacity-20'}`} />
-                    <div className={`absolute w-28 h-28 rounded-full bg-[#FF5722]/30 transition-all duration-300 ${isCoachSpeaking ? 'scale-110 opacity-100' : 'scale-100 opacity-40'}`} />
+                    <div className={`absolute w-40 h-40 rounded-full bg-[#FF5722]/20 transition-all duration-300 ${isCoachSpeaking ? 'scale-125 opacity-100 animate-ping' : 'scale-100 opacity-20'}`} />
+                    <div className={`absolute w-32 h-32 rounded-full bg-[#FF5722]/30 transition-all duration-300 ${isCoachSpeaking ? 'scale-110 opacity-100' : 'scale-100 opacity-40'}`} />
                     
                     <div className="relative z-10 w-24 h-24 rounded-full bg-gradient-to-tr from-[#FF5722] to-[#E64A19] border-4 border-black text-white flex items-center justify-center shadow-2xl">
                       <Bot className="w-12 h-12" />
@@ -491,40 +592,67 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
 
                     <div className="text-center space-y-1">
                       <h3 className="text-lg font-extrabold text-white tracking-tight flex items-center justify-center gap-2">
-                        <span>Marcus — FleetBot Voice Coach</span>
+                        <span>Marcus — FleetBuild AI Trainer</span>
                         <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                       </h3>
                       <p className="text-xs font-semibold text-[#FF5722] flex items-center justify-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5" />
-                        <span>Deep Male Voice Trainer</span>
+                        <span>Realistic Deep Male Voice</span>
                       </p>
                     </div>
                   </div>
 
-                  {/* Dynamic HD Voice Equalizer Waveform */}
-                  <div className="flex items-center justify-center gap-1.5 h-12 py-2">
-                    {[35, 65, 90, 45, 80, 100, 75, 50, 85, 40, 95, 60, 30].map((h, i) => (
+                  {/* Dynamic Voice Assistant Status Indicator */}
+                  <div className="w-full max-w-md flex items-center justify-center gap-3 px-4 py-2.5 rounded-full bg-black/60 border border-white/10">
+                    {isCoachSpeaking ? (
+                      <div className="flex items-center gap-2 text-[#FF5722] text-xs font-bold animate-pulse">
+                        <AudioLines className="w-4 h-4" />
+                        <span>FleetBuild Trainer Speaking...</span>
+                      </div>
+                    ) : isUserListening ? (
+                      <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold animate-pulse">
+                        <Mic className="w-4 h-4" />
+                        <span>Microphone Active — Speak Now...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-white/60 text-xs font-medium">
+                        <RadioTower className="w-4 h-4 text-emerald-400" />
+                        <span>Live Voice Stream Ready</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Dynamic HD Waveform Bars */}
+                  <div className="flex items-center justify-center gap-1.5 h-10 py-1">
+                    {[30, 60, 95, 40, 85, 100, 70, 45, 90, 35, 80, 55, 25].map((h, i) => (
                       <div
                         key={i}
-                        className={`w-1.5 rounded-full bg-gradient-to-t from-[#FF5722] to-[#FFC107] transition-all duration-150 ${
+                        className={`w-1.5 rounded-full transition-all duration-150 ${
                           isCoachSpeaking 
-                            ? 'animate-pulse' 
-                            : 'opacity-40 h-2'
+                            ? 'bg-gradient-to-t from-[#FF5722] to-[#FFC107] animate-pulse' 
+                            : isUserListening 
+                            ? 'bg-gradient-to-t from-emerald-500 to-teal-300 animate-pulse'
+                            : 'bg-white/20 h-2'
                         }`}
                         style={{
-                          height: isCoachSpeaking ? `${Math.max(12, (h * (i % 2 === 0 ? 0.9 : 1.1)) % 44)}px` : '8px',
-                          animationDelay: `${i * 80}ms`
+                          height: (isCoachSpeaking || isUserListening) ? `${Math.max(12, (h * (i % 2 === 0 ? 0.9 : 1.1)) % 38)}px` : '8px',
+                          animationDelay: `${i * 70}ms`
                         }}
                       />
                     ))}
                   </div>
 
-                  {/* Realtime Live Speech Transcript Box */}
-                  <div className="w-full bg-black/60 border border-white/10 rounded-2xl p-4 max-h-40 overflow-y-auto space-y-3 shadow-inner" ref={chatScrollRef}>
+                  {/* Live Interpreted Voice Stream Transcript Log */}
+                  <div className="w-full bg-black/70 border border-white/10 rounded-2xl p-4 max-h-48 overflow-y-auto space-y-3 shadow-inner" ref={chatScrollRef}>
                     {transcripts.length === 0 ? (
-                      <p className="text-xs text-white/50 italic text-center py-2">
-                        Coach connected. Speak into your mic or select a topic below...
-                      </p>
+                      <div className="text-center py-4 space-y-1">
+                        <p className="text-xs text-emerald-400 font-bold">
+                          Microphone is listening live!
+                        </p>
+                        <p className="text-[11px] text-white/50">
+                          Speak naturally into your microphone (e.g. "Coach, how do I position my knees during squats?")
+                        </p>
+                      </div>
                     ) : (
                       transcripts.map((msg, idx) => (
                         <div
@@ -538,12 +666,19 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
                               FB
                             </div>
                           )}
-                          <div className={`p-2.5 rounded-2xl max-w-[85%] ${
+                          <div className={`p-3 rounded-2xl max-w-[85%] ${
                             msg.sender === 'coach' 
                               ? 'bg-[#1E1E1E] border border-white/10 text-white/90' 
                               : 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-200'
                           }`}>
-                            <p className="leading-relaxed font-medium">{msg.text}</p>
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/40 mb-1">
+                              {msg.sender === 'coach' ? (
+                                <span className="text-[#FF5722]">FleetBuild AI Trainer (Voice Output)</span>
+                              ) : (
+                                <span className="text-emerald-400">Your Spoken Microphone Input</span>
+                              )}
+                            </div>
+                            <p className="leading-relaxed font-medium text-xs">{msg.text}</p>
                             <span className="text-[9px] text-white/40 block mt-1 text-right">{msg.time}</span>
                           </div>
                           {msg.sender === 'user' && (
@@ -554,10 +689,18 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
                         </div>
                       ))
                     )}
+
+                    {voiceInterpretedText && (
+                      <div className="p-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2 animate-pulse">
+                        <Mic className="w-4 h-4 text-emerald-400" />
+                        <span>Hearing you speak: "{voiceInterpretedText}..."</span>
+                      </div>
+                    )}
+
                     {isLoadingReply && (
                       <div className="flex items-center gap-2 text-xs text-[#FF5722] animate-pulse py-1">
                         <Bot className="w-4 h-4" />
-                        <span>FleetBot Coach generating deep voice response...</span>
+                        <span>FleetBuild AI Trainer processing voice response...</span>
                       </div>
                     )}
                   </div>
@@ -577,8 +720,8 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
                   </div>
 
                   <div className="space-y-1">
-                    <h3 className="text-xl font-bold text-white tracking-tight">Calling FleetBot AI Voice Coach</h3>
-                    <p className="text-xs text-white/60">Establishing high-definition deep male voice stream...</p>
+                    <h3 className="text-xl font-bold text-white tracking-tight">Calling FleetBuild AI Fitness Trainer</h3>
+                    <p className="text-xs text-white/60">Connecting real-time deep voice assistant...</p>
                   </div>
 
                   <button
@@ -600,7 +743,7 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
                   <div className="space-y-1 max-w-md">
                     <h3 className="text-lg font-bold text-white">Line Busy</h3>
                     <p className="text-xs text-white/70 leading-relaxed">
-                      FleetBot AI Voice Coach is currently in another 1-minute consultation call with an athlete. Please try again in a few moments.
+                      FleetBuild AI Fitness Trainer is currently consulting another athlete. Retrying in moments...
                     </p>
                   </div>
                 </div>
@@ -615,7 +758,7 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
                   <div className="space-y-1 max-w-md">
                     <h3 className="text-lg font-bold text-white">Call Declined</h3>
                     <p className="text-xs text-white/70 leading-relaxed">
-                      The coach is currently on a high-intensity set or unavailable. Resetting line...
+                      The trainer is unavailable right now. Resetting connection...
                     </p>
                   </div>
                 </div>
@@ -630,9 +773,9 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
                   </div>
 
                   <div className="space-y-1.5 max-w-md">
-                    <h3 className="text-xl font-extrabold text-white tracking-tight">FleetBot Voice Coach Ready</h3>
+                    <h3 className="text-xl font-extrabold text-white tracking-tight">FleetBuild AI Fitness Trainer</h3>
                     <p className="text-xs text-white/70 leading-relaxed">
-                      Connect for a 1-minute live voice call with Marcus, our deep-voiced AI fitness coach powered by <span className="text-[#FF5722] font-mono font-bold">fish-audio/s2.1-pro-free:free</span>.
+                      Connect for a 3-minute live voice call. Speak directly into your mic to receive real-time exercise & form guidance in a realistic deep male voice.
                     </p>
                   </div>
 
@@ -641,52 +784,32 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
                     className="px-8 py-3.5 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm flex items-center gap-3 transition-all shadow-xl shadow-emerald-600/30 hover:scale-105 cursor-pointer"
                   >
                     <PhoneCall className="w-5 h-5" />
-                    <span>Start Voice Call with Fitness Coach</span>
+                    <span>Start 3-Min Voice Call</span>
                   </button>
                 </div>
               )}
 
             </div>
 
-            {/* Live Interactive Text/Voice Prompt Input during call */}
-            {callState === 'CONNECTED' && (
-              <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={userInputText}
-                  onChange={(e) => setUserInputText(e.target.value)}
-                  placeholder={isMuted ? "Unmute microphone to send text/voice..." : "Ask FleetBot Coach a voice question (e.g. How's my squat depth?)..."}
-                  disabled={isMuted}
-                  className="flex-1 px-4 py-3 rounded-2xl bg-[#121212] border border-white/10 text-white text-xs placeholder-white/40 focus:outline-none focus:border-[#FF5722] disabled:opacity-40"
-                />
-                <button
-                  type="submit"
-                  disabled={!userInputText.trim() || isMuted || isLoadingReply}
-                  className="px-5 py-3 rounded-2xl bg-[#FF5722] hover:bg-[#E64A19] text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-lg shadow-[#FF5722]/30 disabled:opacity-40 cursor-pointer"
-                >
-                  <Send className="w-4 h-4" />
-                  <span className="hidden sm:inline">Ask Coach</span>
-                </button>
-              </form>
-            )}
-
-            {/* Realistic Voice Call Control Dock at Bottom */}
-            <div className="p-3 rounded-2xl bg-[#121212] border border-white/10 flex items-center justify-between gap-4">
+            {/* Voice Call Control Dock at Bottom */}
+            <div className="p-3.5 rounded-2xl bg-[#121212] border border-white/10 flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    setIsMuted(!isMuted);
-                    if (showToast) showToast(isMuted ? 'Microphone unmuted' : 'Microphone muted');
+                    const nextMute = !isMuted;
+                    setIsMuted(nextMute);
+                    if (showToast) showToast(nextMute ? 'Microphone muted' : 'Microphone active — Listening to your voice');
                   }}
                   disabled={callState !== 'CONNECTED'}
-                  className={`p-3 rounded-xl border transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${
+                  className={`px-4 py-2.5 rounded-xl border font-bold text-xs flex items-center gap-2 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${
                     isMuted 
                       ? 'bg-red-500/20 border-red-500 text-red-400' 
-                      : 'bg-white/5 border-white/10 hover:bg-white/10 text-white'
+                      : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
                   }`}
                   title={isMuted ? 'Unmute Mic' : 'Mute Mic'}
                 >
-                  {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4 text-[#FF5722]" />}
+                  {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4 text-emerald-400 animate-pulse" />}
+                  <span>{isMuted ? 'Mic Muted' : 'Mic Active'}</span>
                 </button>
 
                 <button
@@ -699,7 +822,7 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
                     if (showToast) showToast(nextSpeaker ? 'Speaker audio enabled' : 'Speaker audio muted');
                   }}
                   disabled={callState !== 'CONNECTED'}
-                  className={`p-3 rounded-xl border transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${
+                  className={`p-2.5 rounded-xl border transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ${
                     !isSpeakerOn 
                       ? 'bg-red-500/20 border-red-500 text-red-400' 
                       : 'bg-white/5 border-white/10 hover:bg-white/10 text-white'
@@ -708,10 +831,6 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
                 >
                   {!isSpeakerOn ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
                 </button>
-
-                <span className="text-xs text-white/50 hidden sm:inline ml-1 font-medium">
-                  {callState === 'CONNECTED' ? 'Live Deep Voice Active' : 'Controls active when call connected'}
-                </span>
               </div>
 
               {/* Main Call Action Toggle */}
@@ -749,17 +868,17 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
                 <Radio className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-white tracking-tight">Voice Consultation Topics</h2>
-                <p className="text-xs text-white/60">Select priority topic for Marcus</p>
+                <h2 className="text-base font-bold text-white tracking-tight">Trainer Focus Topics</h2>
+                <p className="text-xs text-white/60">Select target topic for Marcus</p>
               </div>
             </div>
 
             <p className="text-xs text-white/80 leading-relaxed bg-[#121212] p-4 rounded-2xl border border-white/5">
-              Connect for a 1-minute voice consultation session. Marcus will analyze your prompt and respond directly in a deep trainer voice.
+              Select a topic and speak into your microphone. FleetBuild AI Fitness Trainer will listen to your voice and reply with realistic deep male speech.
             </p>
 
             <div className="space-y-2 pt-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-white/50 block">Select Topic</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-white/50 block">Active Focus</span>
               <div className="grid grid-cols-1 gap-2">
                 {topics.map((t, idx) => (
                   <button
@@ -802,12 +921,16 @@ export const LiveCoachView: React.FC<LiveCoachViewProps> = ({ showToast }) => {
                 <span className="font-mono text-[11px] text-white font-semibold">OpenRouter</span>
               </li>
               <li className="flex items-center justify-between">
-                <span className="text-white/50">Voice Synthesis:</span>
-                <span className="text-emerald-400 font-semibold">Deep Male Trainer Tone</span>
+                <span className="text-white/50">Input Mechanism:</span>
+                <span className="text-emerald-400 font-semibold">Live Microphone Speech</span>
               </li>
               <li className="flex items-center justify-between">
-                <span className="text-white/50">Call Limit:</span>
-                <span className="text-white font-semibold">60 Seconds Auto-Limit</span>
+                <span className="text-white/50">Voice Output:</span>
+                <span className="text-emerald-400 font-semibold">Realistic Deep Male Trainer</span>
+              </li>
+              <li className="flex items-center justify-between">
+                <span className="text-white/50">Session Limit:</span>
+                <span className="text-white font-semibold">3 Minutes Auto-Limit</span>
               </li>
             </ul>
           </div>

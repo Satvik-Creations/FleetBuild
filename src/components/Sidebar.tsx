@@ -53,9 +53,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'livecoach',
-      label: 'AI Trainer Voice Call',
+      label: 'FleetBuild AI Trainer',
       icon: <PhoneCall className="w-5 h-5 text-[#FF5722]" />,
-      badge: 'Voice Call',
+      badge: '3-Min Voice',
     },
     {
       id: 'steptracker',
