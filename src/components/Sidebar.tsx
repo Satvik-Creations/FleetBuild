@@ -3,7 +3,6 @@ import { ViewType } from '../types';
 import { 
   LayoutDashboard, 
   Bot, 
-  PhoneCall,
   Footprints,
   Dumbbell, 
   Activity, 
@@ -50,12 +49,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'FleetBot Coach',
       icon: <Bot className="w-5 h-5" />,
       badge: 'AI Engine',
-    },
-    {
-      id: 'livecoach',
-      label: 'FleetBuild AI Trainer',
-      icon: <PhoneCall className="w-5 h-5 text-[#FF5722]" />,
-      badge: '3-Min Voice',
     },
     {
       id: 'steptracker',

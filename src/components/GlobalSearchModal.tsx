@@ -62,21 +62,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                 <p>Try "Coach", "Steps", "Push Pull", "Bench Press", "Chest"</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-zinc-800">
-                <button
-                  onClick={() => {
-                    onSelectView('livecoach');
-                    onClose();
-                  }}
-                  className="p-3 bg-zinc-950 border border-zinc-800 hover:border-[#FF5722] rounded-xl text-left cursor-pointer transition-all"
-                >
-                  <p className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-[#FF5722]" />
-                    FleetBuild Live Coach
-                  </p>
-                  <p className="text-[10px] text-zinc-500 mt-0.5">1-Min Video Call Consultation</p>
-                </button>
-
+              <div className="grid grid-cols-1 gap-2 pt-2 border-t border-zinc-800">
                 <button
                   onClick={() => {
                     onSelectView('steptracker');
