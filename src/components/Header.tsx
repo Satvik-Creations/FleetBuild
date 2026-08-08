@@ -37,8 +37,8 @@ export const Header: React.FC<HeaderProps> = ({
       subtitle: 'Active memory engine tracking goals & auto-adapting routines.',
     },
     livecoach: {
-      title: 'FleetBuild Live Fitness Coach',
-      subtitle: 'Connect with our FleetBuild Fitness Coach for a 1 minute call session.',
+      title: 'FleetBot AI Fitness Trainer Voice Call',
+      subtitle: 'Real-time deep male voice consultation powered by fish-audio/s2.1-pro-free:free.',
     },
     steptracker: {
       title: 'Motion & Calorie Step Counter',

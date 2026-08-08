@@ -1,7 +1,7 @@
 import React from 'react';
 import { UserProfile } from '../domain/models';
 import { ViewType } from '../types';
-import { Dumbbell, Target, AlertTriangle, Bot, Utensils, Plus, Calendar, Activity, Sparkles, ArrowRight, ShieldCheck, Footprints, Video } from 'lucide-react';
+import { Dumbbell, Target, AlertTriangle, Bot, Utensils, Plus, Calendar, Activity, Sparkles, ArrowRight, ShieldCheck, Footprints, PhoneCall } from 'lucide-react';
 
 interface DashboardViewProps {
   userProfile: UserProfile;
@@ -42,8 +42,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               onClick={() => onNavigateToView('livecoach')}
               className="px-5 py-3 rounded-2xl bg-gradient-to-r from-[#FF5722] to-[#E64A19] text-white text-sm font-bold flex items-center gap-2 transition-all duration-300 shadow-xl shadow-[#FF5722]/25 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
             >
-              <Video className="w-4 h-4 animate-pulse" />
-              <span>Live 1-Min Coach</span>
+              <PhoneCall className="w-4 h-4 animate-pulse" />
+              <span>AI Voice Call</span>
             </button>
             <button
               onClick={() => onNavigateToView('fleetbot')}
@@ -179,10 +179,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 className="p-4 rounded-2xl bg-gradient-to-br from-[#241815] to-[#121212] hover:bg-zinc-800 border border-[#FF5722]/40 hover:border-[#FF5722] text-left transition-all group cursor-pointer relative overflow-hidden"
               >
                 <div className="w-9 h-9 rounded-xl bg-[#FF5722] text-white flex items-center justify-center mb-2 group-hover:scale-110 transition-transform shadow-md shadow-[#FF5722]/30">
-                  <Video className="w-5 h-5" />
+                  <PhoneCall className="w-5 h-5" />
                 </div>
-                <p className="text-xs font-bold text-white group-hover:text-[#FF5722] transition-colors">FleetBuild Live Coach</p>
-                <p className="text-[10px] text-[#FF5722] font-semibold">1-Min Video Call</p>
+                <p className="text-xs font-bold text-white group-hover:text-[#FF5722] transition-colors">AI Trainer Voice Call</p>
+                <p className="text-[10px] text-[#FF5722] font-semibold">1-Min AI Voice Call</p>
               </button>
               <button
                 onClick={() => onNavigateToView('steptracker')}
