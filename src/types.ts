@@ -101,6 +101,14 @@ export interface DailyMetrics {
   stepTarget?: number;
 }
 
+export interface NutritionLogEntry {
+  id: string;
+  timestamp: string;
+  type: 'calories' | 'protein' | 'water';
+  amount: number;
+  label?: string;
+}
+
 export interface Achievement {
   id: string;
   title: string;

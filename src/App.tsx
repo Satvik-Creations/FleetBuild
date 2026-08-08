@@ -117,7 +117,24 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [currentWorkoutPlan, setCurrentWorkoutPlan] = useState<WorkoutPlan>(defaultEmptyPlan);
   const [weightHistory, setWeightHistory] = useState<WeightDataPoint[]>([]);
-  const [dailyMetrics, setDailyMetrics] = useState<DailyMetrics>(defaultEmptyDailyMetrics);
+  const [dailyMetrics, setDailyMetrics] = useState<DailyMetrics>(() => {
+    try {
+      const saved = localStorage.getItem('fleetbuild_daily_metrics');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Error loading saved metrics:', e);
+    }
+    return defaultEmptyDailyMetrics;
+  });
+
+  // Save dailyMetrics to localStorage on change
+  useEffect(() => {
+    try {
+      localStorage.setItem('fleetbuild_daily_metrics', JSON.stringify(dailyMetrics));
+    } catch (e) {
+      console.error('Error saving metrics:', e);
+    }
+  }, [dailyMetrics]);
 
   const [isGeneratingAiResponse, setIsGeneratingAiResponse] = useState(false);
 
