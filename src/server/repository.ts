@@ -123,22 +123,35 @@ export class JsonFileUserRepository implements UserRepository {
 
   private seedAdminAccount(): void {
     let adminExists = false;
+    const targetAdminEmail = (process.env.ADMIN_EMAIL || 'satviksinghal07@gmail.com').toLowerCase();
     for (const userData of this.usersMap.values()) {
-      if (userData.account.role === 'admin') {
+      if (userData.account.role === 'admin' || userData.account.email.toLowerCase() === targetAdminEmail) {
         adminExists = true;
         break;
       }
     }
 
     if (!adminExists) {
-      const adminEmail = 'admin@fleetbuild.ai';
-      const { hash, salt } = hashPassword('AdminPass123!');
-      const adminId = 'admin-1';
+      const adminEmail = targetAdminEmail;
+      const adminId = 'admin-satvik';
       const now = new Date().toISOString();
+
+      let hash: string;
+      let salt: string;
+
+      if (process.env.ADMIN_PASSWORD) {
+        const hashed = hashPassword(process.env.ADMIN_PASSWORD);
+        hash = hashed.hash;
+        salt = hashed.salt;
+      } else {
+        // Pre-computed scryptSync hash & salt for default admin setup
+        hash = '8fcfd0d500ac6f0db6d8b9c7821504fefc6dd5097d257080d28b1e8936dfe08a20fd33f9c7c45b88ed7d24ab768df009f74f03427d28ad3f1a1e4e4ae1b10b9c';
+        salt = 'd96c6852c387df7e70edf72a66962749';
+      }
 
       const adminAccount: UserAccount = {
         id: adminId,
-        name: 'System Administrator',
+        name: 'Satvik Singhal',
         email: adminEmail,
         passwordHash: hash,
         salt,
@@ -151,7 +164,7 @@ export class JsonFileUserRepository implements UserRepository {
       const adminProfile: UserProfile = {
         id: `profile-${adminId}`,
         userId: adminId,
-        name: 'System Administrator',
+        name: 'Satvik Singhal',
         email: adminEmail,
         onboardingCompleted: true,
         fitnessGoal: {
