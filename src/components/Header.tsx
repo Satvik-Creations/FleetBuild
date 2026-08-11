@@ -13,6 +13,7 @@ interface HeaderProps {
   onNavigateToFleetBot: () => void;
   onOpenSearch?: () => void;
   onSignOut: () => void;
+  isFleetBotPaid?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -26,6 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigateToFleetBot,
   onOpenSearch,
   onSignOut,
+  isFleetBotPaid = false,
 }) => {
   const titles: Record<ViewType, { title: string; subtitle: string }> = {
     dashboard: {
@@ -34,7 +36,9 @@ export const Header: React.FC<HeaderProps> = ({
     },
     fleetbot: {
       title: 'FleetBot AI Neural Coach',
-      subtitle: 'Active memory engine tracking goals & auto-adapting routines.',
+      subtitle: isFleetBotPaid 
+        ? 'Premium Service • PRO Unlocked (1-Year Pass)' 
+        : 'Premium AI Service • Unlock 1-Year Access for ₹49.00/year',
     },
     steptracker: {
       title: 'Motion & Calorie Step Counter',

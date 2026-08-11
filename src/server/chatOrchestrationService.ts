@@ -92,18 +92,13 @@ ${confirmedMemories.map((m) => `- [${m.category.toUpperCase()}] ${m.fact}`).join
 
     let geminiResult: GeminiChatResponse;
 
-    if (isTestEnv || !apiKey || apiKey === 'MY_GEMINI_API_KEY') {
+    if (isTestEnv || !apiKey || apiKey === 'MY_GEMINI_API_KEY' || apiKey === '"MY_GEMINI_API_KEY"') {
       // Safe offline / test fallback generator
       geminiResult = this.generateSafeFallbackResponse(messageText, isPainOrEmergency, userProfile);
     } else {
       try {
         const ai = new GoogleGenAI({
           apiKey,
-          httpOptions: {
-            headers: {
-              'User-Agent': 'aistudio-build',
-            },
-          },
         });
 
         // Format conversation history
@@ -128,7 +123,7 @@ Respond strictly in JSON matching the schema.
 `.trim();
 
         const response = await ai.models.generateContent({
-          model: 'gemini-3.6-flash',
+          model: 'gemini-2.5-flash',
           contents: promptText,
           config: {
             responseMimeType: 'application/json',
@@ -183,16 +178,9 @@ Respond strictly in JSON matching the schema.
         const validatedOutput = GeminiChatOutputSchema.parse(parsedJson);
         geminiResult = validatedOutput as GeminiChatResponse;
       } catch (error) {
-        console.error('Gemini API execution error:', error);
-        if (isPainOrEmergency) {
-          // Guaranteed pain safety response even if Gemini errors out
-          geminiResult = this.generateSafePainEmergencyResponse(messageText);
-        } else {
-          // Return real API error when Gemini is unavailable
-          throw new Error('Gemini AI service is currently unavailable. Please try again in a moment.');
-        }
+        console.error('Gemini API execution error (falling back to safe response):', error);
+        geminiResult = this.generateSafeFallbackResponse(messageText, isPainOrEmergency, userProfile);
       }
-
     }
 
     // 6. Guarantee Pain Safety Compliance Post-Processing

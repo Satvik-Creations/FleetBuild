@@ -1,5 +1,27 @@
 export type UserRole = 'member' | 'admin';
 
+export type PaymentStatus = 'successful' | 'pending' | 'failed' | 'cancelled';
+
+export interface SubscriptionRecord {
+  userId: string;
+  paymentId: string;
+  orderId?: string;
+  paymentStatus: PaymentStatus;
+  plan: 'FleetBot_1_Year';
+  purchaseDate: string;
+  accessStartDate: string;
+  accessExpiryDate: string;
+  amount: number;
+}
+
+export interface UserPaymentDetails {
+  paymentId: string;
+  paidAt: string;
+  expiresAt: string;
+  planName: string;
+  amount: number;
+}
+
 export interface UserAccount {
   id: string;
   name: string;
@@ -8,6 +30,9 @@ export interface UserAccount {
   salt: string;
   role: UserRole;
   onboardingCompleted: boolean;
+  subscription?: SubscriptionRecord | null;
+  isPaid?: boolean;
+  paymentDetails?: UserPaymentDetails | null;
   createdAt: string;
   updatedAt: string;
 }

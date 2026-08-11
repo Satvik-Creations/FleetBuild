@@ -7,6 +7,7 @@ import {
   LoggedWorkout,
   LoggedMetric,
   UserRole,
+  SubscriptionRecord,
 } from '../domain/models.js';
 import { hashPassword } from './auth.js';
 import fs from 'fs';
@@ -23,6 +24,8 @@ export interface UserRepository {
   getProfile(userId: string): Promise<UserProfile | null>;
   updateProfile(userId: string, profileUpdates: Partial<UserProfile>): Promise<UserProfile>;
   updatePassword(userId: string, newPasswordHash: string, newSalt: string): Promise<void>;
+  updateUserSubscription(userId: string, subscription: SubscriptionRecord): Promise<UserAccount>;
+  updateUserPayment(userId: string, paymentDetails: { paymentId: string; paidAt: string; expiresAt: string; planName: string; amount: number }): Promise<UserAccount>;
   deleteUser(userId: string): Promise<void>;
   
   getMemoryFacts(userId: string): Promise<MemoryFact[]>;
@@ -231,6 +234,8 @@ export class JsonFileUserRepository implements UserRepository {
       salt: data.salt,
       role: data.role,
       onboardingCompleted: data.role === 'admin',
+      isPaid: false,
+      paymentDetails: null,
       createdAt: now,
       updatedAt: now,
     };
@@ -369,6 +374,47 @@ export class JsonFileUserRepository implements UserRepository {
     userData.account.salt = newSalt;
     userData.account.updatedAt = new Date().toISOString();
     this.saveUsersToFile();
+  }
+
+  async updateUserSubscription(userId: string, subscription: SubscriptionRecord): Promise<UserAccount> {
+    const userData = this.usersMap.get(userId);
+    if (!userData) {
+      throw new Error(`User not found: ${userId}`);
+    }
+    userData.account.subscription = subscription;
+    userData.account.isPaid = subscription.paymentStatus === 'successful';
+    userData.account.paymentDetails = {
+      paymentId: subscription.paymentId,
+      paidAt: subscription.accessStartDate,
+      expiresAt: subscription.accessExpiryDate,
+      planName: 'FleetBot 1-Year Access (₹49/year)',
+      amount: subscription.amount,
+    };
+    userData.account.updatedAt = new Date().toISOString();
+    this.saveUsersToFile();
+    return JSON.parse(JSON.stringify(userData.account));
+  }
+
+  async updateUserPayment(userId: string, paymentDetails: { paymentId: string; paidAt: string; expiresAt: string; planName: string; amount: number }): Promise<UserAccount> {
+    const userData = this.usersMap.get(userId);
+    if (!userData) {
+      throw new Error(`User not found: ${userId}`);
+    }
+    userData.account.isPaid = true;
+    userData.account.paymentDetails = paymentDetails;
+    userData.account.subscription = {
+      userId,
+      paymentId: paymentDetails.paymentId,
+      paymentStatus: 'successful',
+      plan: 'FleetBot_1_Year',
+      purchaseDate: paymentDetails.paidAt || new Date().toISOString(),
+      accessStartDate: paymentDetails.paidAt || new Date().toISOString(),
+      accessExpiryDate: paymentDetails.expiresAt,
+      amount: paymentDetails.amount || 49,
+    };
+    userData.account.updatedAt = new Date().toISOString();
+    this.saveUsersToFile();
+    return JSON.parse(JSON.stringify(userData.account));
   }
 
   async deleteUser(userId: string): Promise<void> {

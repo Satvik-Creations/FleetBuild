@@ -24,6 +24,7 @@ import { NutritionView } from './components/NutritionView';
 import { AchievementsView } from './components/AchievementsView';
 import { StepTrackerView } from './components/StepTrackerView';
 import { GlobalSearchModal } from './components/GlobalSearchModal';
+import { BottomNav } from './components/BottomNav';
 
 import { Zap, Loader2 } from 'lucide-react';
 
@@ -126,6 +127,121 @@ export default function App() {
     }
     return defaultEmptyDailyMetrics;
   });
+
+  // FleetBot AI Premium Payment State (Tied strictly to user account)
+  const [fleetBotPaymentDetails, setFleetBotPaymentDetails] = useState<{
+    paymentId?: string;
+    paidAt?: string;
+    expiresAt?: string;
+    planName?: string;
+  } | null>(null);
+
+  const [isFleetBotPaid, setIsFleetBotPaid] = useState<boolean>(false);
+
+  // Sync payment state directly with user profile & account
+  useEffect(() => {
+    if (!user) {
+      setIsFleetBotPaid(false);
+      setFleetBotPaymentDetails(null);
+      return;
+    }
+
+    if (user.role === 'admin') {
+      setIsFleetBotPaid(true);
+      return;
+    }
+
+    const sub = user.subscription;
+    if (sub && sub.paymentStatus === 'successful' && new Date(sub.accessExpiryDate).getTime() > Date.now()) {
+      setIsFleetBotPaid(true);
+      setFleetBotPaymentDetails({
+        paymentId: sub.paymentId,
+        paidAt: sub.accessStartDate,
+        expiresAt: sub.accessExpiryDate,
+        planName: 'FleetBot — 1 Year Access',
+      });
+    } else if (user.isPaid && user.paymentDetails?.expiresAt && new Date(user.paymentDetails.expiresAt).getTime() > Date.now()) {
+      setIsFleetBotPaid(true);
+      setFleetBotPaymentDetails(user.paymentDetails);
+    } else {
+      setIsFleetBotPaid(false);
+      setFleetBotPaymentDetails(null);
+    }
+  }, [user]);
+
+  // Verify Razorpay Payment from parameters or user submission
+  const verifyRazorpayPayment = async (givenPaymentId?: string) => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.replace('#', '?'));
+
+      const pId = givenPaymentId || 
+        urlParams.get('razorpay_payment_id') || 
+        urlParams.get('rzp_payment_id') || 
+        urlParams.get('payment_id') || 
+        hashParams.get('razorpay_payment_id') || 
+        hashParams.get('rzp_payment_id');
+
+      const paymentStatus = urlParams.get('payment_status') || urlParams.get('payment') || hashParams.get('payment');
+
+      if ((pId && pId.startsWith('pay_')) || paymentStatus === 'success' || givenPaymentId) {
+        const data = await api.verifyPayment({ paymentId: pId || givenPaymentId, status: paymentStatus || undefined });
+        
+        if (data.success && data.user) {
+          setUser(data.user);
+          setIsFleetBotPaid(true);
+          if (data.subscription) {
+            setFleetBotPaymentDetails({
+              paymentId: data.subscription.paymentId,
+              paidAt: data.subscription.accessStartDate,
+              expiresAt: data.subscription.accessExpiryDate,
+              planName: 'FleetBot — 1 Year Access',
+            });
+          }
+
+          // Clear payment query parameters from address bar cleanly
+          const cleanPath = window.location.pathname;
+          window.history.replaceState({}, document.title, cleanPath);
+
+          showToast('🎉 Razorpay Payment Verified! 1-Year FleetBot AI Access Activated.');
+          return true;
+        }
+      }
+    } catch (e) {
+      console.error('Error verifying Razorpay redirect:', e);
+    }
+    return false;
+  };
+
+  // Automatic redirect listener on mount & tab focus
+  useEffect(() => {
+    if (user) {
+      verifyRazorpayPayment();
+    }
+
+    const handleWindowFocus = () => {
+      if (user) {
+        verifyRazorpayPayment();
+      }
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('popstate', handleWindowFocus);
+
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('popstate', handleWindowFocus);
+    };
+  }, [user]);
+
+  const handleResetFleetBotPayment = () => {
+    setIsFleetBotPaid(false);
+    setFleetBotPaymentDetails(null);
+    if (user) {
+      setUser({ ...user, isPaid: false, paymentDetails: null });
+    }
+    showToast('FleetBot AI subscription reset. Annual renewal required.');
+  };
 
   // Save dailyMetrics to localStorage on change
   useEffect(() => {
@@ -399,6 +515,7 @@ export default function App() {
           isMobileOpen={isMobileMenuOpen}
           setIsMobileOpen={setIsMobileMenuOpen}
           onSignOut={handleSignOut}
+          isFleetBotPaid={isFleetBotPaid}
         />
 
         {/* Main Workspace Area */}
@@ -416,10 +533,11 @@ export default function App() {
             onNavigateToFleetBot={() => setCurrentView('fleetbot')}
             onOpenSearch={() => setIsSearchOpen(true)}
             onSignOut={handleSignOut}
+            isFleetBotPaid={isFleetBotPaid}
           />
 
           {/* View Container */}
-          <main className="flex-1 p-4 sm:p-8 max-w-7xl w-full mx-auto">
+          <main className="flex-1 p-3 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-7xl w-full mx-auto">
             {currentView === 'admin' && user.role === 'admin' && (
               <AdminView />
             )}
@@ -428,6 +546,7 @@ export default function App() {
               <DashboardView
                 userProfile={userProfile}
                 onNavigateToView={setCurrentView}
+                isFleetBotPaid={isFleetBotPaid}
               />
             )}
 
@@ -548,6 +667,11 @@ export default function App() {
                 onLoadAdaptiveRoutine={() => showToast('Loaded routine in Workout Planner.')}
                 isRoutineLoaded={false}
                 isGenerating={isGeneratingAiResponse}
+                isPaid={isFleetBotPaid}
+                paymentDetails={fleetBotPaymentDetails}
+                onVerifyPayment={verifyRazorpayPayment}
+                onResetPayment={handleResetFleetBotPayment}
+                showToast={showToast}
               />
             )}
 
@@ -602,6 +726,14 @@ export default function App() {
         </div>
 
       </div>
+
+      {/* Mobile Bottom Navigation Bar for APK / Native Web2App Feel */}
+      <BottomNav
+        currentView={currentView}
+        onSelectView={setCurrentView}
+        onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+        isFleetBotPaid={isFleetBotPaid}
+      />
 
       {/* Global Modals */}
       {isSearchOpen && (

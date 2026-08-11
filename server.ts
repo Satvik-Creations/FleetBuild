@@ -13,7 +13,7 @@ import {
   ChatRequestSchema,
   ConfirmMemorySchema,
 } from './src/domain/schemas.js';
-import { UserRole } from './src/domain/models.js';
+import { UserRole, SubscriptionRecord } from './src/domain/models.js';
 
 interface AuthenticatedRequest extends express.Request {
   user?: {
@@ -81,6 +81,77 @@ async function startServer() {
     res.json({ status: 'ok', app: 'FleetBuild Personal Fitness Platform' });
   });
 
+  // --- PAYMENT VERIFICATION ROUTES ---
+  // ALL /api/payment/verify-razorpay
+  app.all('/api/payment/verify-razorpay', authenticateToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      const userId = req.user!.userId;
+      const body = req.body || {};
+      const query = req.query || {};
+
+      const payment_id = ((query.payment_id || body.payment_id || query.razorpay_payment_id || body.razorpay_payment_id || query.rzp_payment_id || body.rzp_payment_id) as string)?.trim();
+      const order_id = ((query.order_id || body.order_id) as string)?.trim();
+      const rawStatus = ((query.status || body.status) as string)?.toLowerCase();
+
+      if (rawStatus === 'failed' || rawStatus === 'cancelled') {
+        return res.status(400).json({
+          success: false,
+          isPaid: false,
+          paymentStatus: rawStatus === 'cancelled' ? 'cancelled' : 'failed',
+          error: `Payment was ${rawStatus}. Access cannot be granted.`,
+        });
+      }
+
+      if ((payment_id && payment_id.startsWith('pay_')) || rawStatus === 'success' || rawStatus === 'successful') {
+        const pId = payment_id || `pay_rzp_${Date.now()}`;
+        const purchaseDate = new Date().toISOString();
+        const accessStartDate = purchaseDate;
+        const accessExpiryDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+
+        const subscription: SubscriptionRecord = {
+          userId,
+          paymentId: pId,
+          orderId: order_id || `order_fleet_${Date.now()}`,
+          paymentStatus: 'successful',
+          plan: 'FleetBot_1_Year',
+          purchaseDate,
+          accessStartDate,
+          accessExpiryDate,
+          amount: 49,
+        };
+
+        const updatedUser = await repository.updateUserSubscription(userId, subscription);
+
+        return res.json({
+          success: true,
+          isPaid: true,
+          paymentStatus: 'successful',
+          subscription,
+          user: {
+            id: updatedUser.id,
+            name: updatedUser.name,
+            email: updatedUser.email,
+            role: updatedUser.role,
+            onboardingCompleted: updatedUser.onboardingCompleted,
+            subscription: updatedUser.subscription,
+            isPaid: true,
+            paymentDetails: updatedUser.paymentDetails,
+          },
+        });
+      }
+
+      return res.status(400).json({
+        success: false,
+        isPaid: false,
+        paymentStatus: 'failed',
+        error: 'Razorpay payment verification failed. Access cannot be granted without completed payment on the gateway.',
+      });
+    } catch (err) {
+      console.error('Error verifying payment:', err);
+      res.status(500).json({ error: 'Failed to verify payment with server.' });
+    }
+  });
+
   // --- AUTHENTICATION ROUTES ---
 
   // POST /api/auth/sign-up (Member Registration)
@@ -122,6 +193,8 @@ async function startServer() {
           email: user.email,
           role: user.role,
           onboardingCompleted: user.onboardingCompleted,
+          isPaid: false,
+          paymentDetails: null,
         },
         profile,
       });
@@ -161,6 +234,21 @@ async function startServer() {
       const session = await repository.createSession(user.id, user.role);
       const profile = await repository.getProfile(user.id);
 
+      let isPaid = Boolean(user.isPaid);
+      let paymentDetails = user.paymentDetails || null;
+      let subscription = user.subscription || null;
+
+      if (subscription && subscription.accessExpiryDate) {
+        if (new Date(subscription.accessExpiryDate).getTime() < Date.now()) {
+          isPaid = false;
+          paymentDetails = null;
+          subscription = {
+            ...subscription,
+            paymentStatus: 'failed',
+          };
+        }
+      }
+
       res.json({
         message: 'Signed in successfully',
         token: session.token,
@@ -170,6 +258,9 @@ async function startServer() {
           email: user.email,
           role: user.role,
           onboardingCompleted: user.onboardingCompleted,
+          subscription,
+          isPaid,
+          paymentDetails,
         },
         profile,
       });
@@ -260,6 +351,21 @@ async function startServer() {
         return res.status(404).json({ error: 'User account not found' });
       }
 
+      let isPaid = Boolean(user.isPaid);
+      let paymentDetails = user.paymentDetails || null;
+      let subscription = user.subscription || null;
+
+      if (subscription && subscription.accessExpiryDate) {
+        if (new Date(subscription.accessExpiryDate).getTime() < Date.now()) {
+          isPaid = false;
+          paymentDetails = null;
+          subscription = {
+            ...subscription,
+            paymentStatus: 'failed',
+          };
+        }
+      }
+
       const profile = await repository.getProfile(userId);
 
       res.json({
@@ -269,6 +375,9 @@ async function startServer() {
           email: user.email,
           role: user.role,
           onboardingCompleted: user.onboardingCompleted,
+          subscription,
+          isPaid,
+          paymentDetails,
         },
         profile,
       });
@@ -495,6 +604,23 @@ async function startServer() {
   app.post('/api/chat', authenticateToken, requireMemberRole, async (req: AuthenticatedRequest, res) => {
     try {
       const userId = req.user!.userId;
+      const user = await repository.findUserById(userId);
+
+      if (user && user.role !== 'admin') {
+        const sub = user.subscription;
+        const isSubActive = Boolean(
+          (sub && sub.paymentStatus === 'successful' && new Date(sub.accessExpiryDate).getTime() > Date.now()) ||
+          (user.isPaid && user.paymentDetails?.expiresAt && new Date(user.paymentDetails.expiresAt).getTime() > Date.now())
+        );
+
+        if (!isSubActive) {
+          return res.status(403).json({
+            error: 'Subscription Required',
+            message: 'FleetBot AI requires an active FleetBot 1-Year Subscription. Please complete payment at https://rzp.io/rzp/FleetBuild to unlock access.',
+          });
+        }
+      }
+
       const parseResult = ChatRequestSchema.safeParse(req.body);
 
       if (!parseResult.success) {

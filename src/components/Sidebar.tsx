@@ -27,6 +27,7 @@ interface SidebarProps {
   isMobileOpen: boolean;
   setIsMobileOpen: (open: boolean) => void;
   onSignOut: () => void;
+  isFleetBotPaid?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -37,6 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileOpen,
   setIsMobileOpen,
   onSignOut,
+  isFleetBotPaid = false,
 }) => {
   const memberNavItems: { id: ViewType; label: string; icon: React.ReactNode; badge?: string }[] = [
     {
@@ -48,7 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'fleetbot',
       label: 'FleetBot Coach',
       icon: <Bot className="w-5 h-5" />,
-      badge: 'AI Engine',
+      badge: isFleetBotPaid ? 'PRO' : '₹49 PRO',
     },
     {
       id: 'steptracker',

@@ -6,11 +6,13 @@ import { Dumbbell, Target, AlertTriangle, Bot, Utensils, Plus, Calendar, Activit
 interface DashboardViewProps {
   userProfile: UserProfile;
   onNavigateToView: (view: ViewType) => void;
+  isFleetBotPaid?: boolean;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   userProfile,
   onNavigateToView,
+  isFleetBotPaid = false,
 }) => {
   const goalTitle = userProfile.fitnessGoal?.title || 'Personal Fitness Goal';
   const equipment = userProfile.equipmentAccess || [];
@@ -40,10 +42,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex items-center gap-3">
             <button
               onClick={() => onNavigateToView('fleetbot')}
-              className="px-4 py-3 rounded-2xl bg-[#121212] border border-white/10 hover:border-[#FF5722] text-white text-sm font-semibold flex items-center gap-2 transition-all duration-300 hover:shadow-lg hover:shadow-[#FF5722]/10"
+              className="px-4 py-3 rounded-2xl bg-[#121212] border border-white/10 hover:border-[#FF5722] text-white text-sm font-semibold flex items-center gap-2 transition-all duration-300 hover:shadow-lg hover:shadow-[#FF5722]/10 cursor-pointer"
             >
               <Bot className="w-4 h-4 text-[#FF5722]" />
               <span>Consult FleetBot</span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                isFleetBotPaid ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-[#FF5722]/20 text-[#FF5722] border border-[#FF5722]/30'
+              }`}>
+                {isFleetBotPaid ? 'PRO' : '₹49'}
+              </span>
             </button>
             <button
               onClick={() => onNavigateToView('workout')}

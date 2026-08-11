@@ -80,7 +80,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white flex items-center justify-center p-4 sm:p-6 font-sans relative overflow-hidden">
+    <div className="min-h-[100dvh] bg-[#121212] text-white flex items-center justify-center p-4 sm:p-6 font-sans relative overflow-hidden">
       {/* Background Accent Gradients */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-gradient-to-tr from-[#FF5722]/20 via-[#FFC107]/10 to-transparent rounded-full blur-3xl pointer-events-none" />
 

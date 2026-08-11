@@ -1,4 +1,4 @@
-import { UserProfile, ConversationMessage, GeminiChatResponse, MemoryFact } from '../domain/models';
+import { UserProfile, ConversationMessage, GeminiChatResponse, MemoryFact, SubscriptionRecord } from '../domain/models';
 
 const TOKEN_KEY = 'fleetbuild_session_token';
 const ROLE_KEY = 'fleetbuild_user_role';
@@ -9,6 +9,15 @@ export interface UserSummary {
   email: string;
   role: 'member' | 'admin';
   onboardingCompleted: boolean;
+  subscription?: SubscriptionRecord | null;
+  isPaid?: boolean;
+  paymentDetails?: {
+    paymentId: string;
+    paidAt: string;
+    expiresAt: string;
+    planName: string;
+    amount?: number;
+  } | null;
 }
 
 export interface AuthResponse {
@@ -153,6 +162,46 @@ export const api = {
     return request<{ success: boolean; message: string }>('/api/me/delete-account', {
       method: 'POST',
       body: JSON.stringify(payload),
+    });
+  },
+
+  async verifyPayment(payload?: { paymentId?: string; orderId?: string; status?: string }): Promise<{
+    success: boolean;
+    isPaid: boolean;
+    paymentStatus?: 'successful' | 'pending' | 'failed' | 'cancelled';
+    subscription?: SubscriptionRecord;
+    paymentDetails?: any;
+    user?: UserSummary;
+    error?: string;
+  }> {
+    const urlParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace('#', '?'));
+
+    const pId = payload?.paymentId || 
+      urlParams.get('razorpay_payment_id') || 
+      urlParams.get('rzp_payment_id') || 
+      urlParams.get('payment_id') || 
+      hashParams.get('razorpay_payment_id') || 
+      hashParams.get('rzp_payment_id');
+
+    const paymentStatus = payload?.status || urlParams.get('payment_status') || urlParams.get('payment') || hashParams.get('payment');
+    const orderId = payload?.orderId || urlParams.get('order_id') || hashParams.get('order_id');
+
+    return request<{
+      success: boolean;
+      isPaid: boolean;
+      paymentStatus?: 'successful' | 'pending' | 'failed' | 'cancelled';
+      subscription?: SubscriptionRecord;
+      paymentDetails?: any;
+      user?: UserSummary;
+      error?: string;
+    }>('/api/payment/verify-razorpay', {
+      method: 'POST',
+      body: JSON.stringify({
+        payment_id: pId,
+        order_id: orderId,
+        status: paymentStatus,
+      }),
     });
   },
 
