@@ -184,8 +184,16 @@ export default function App() {
 
       const paymentStatus = urlParams.get('payment_status') || urlParams.get('payment') || hashParams.get('payment');
 
-      if ((pId && pId.startsWith('pay_')) || paymentStatus === 'success' || givenPaymentId) {
-        const data = await api.verifyPayment({ paymentId: pId || givenPaymentId, status: paymentStatus || undefined });
+      const targetId = (givenPaymentId || pId)?.trim();
+      const isValidFormat = targetId ? /^pay_[a-zA-Z0-9]{10,}$/i.test(targetId) : false;
+
+      if (targetId && !isValidFormat) {
+        showToast('❌ Invalid Payment ID format. Must start with pay_ followed by 10+ characters (e.g. pay_P2aK8mN9xQ1234).');
+        return false;
+      }
+
+      if (targetId || paymentStatus === 'success' || paymentStatus === 'successful') {
+        const data = await api.verifyPayment({ paymentId: targetId, status: paymentStatus || undefined });
         
         if (data.success && data.user) {
           setUser(data.user);
@@ -205,6 +213,9 @@ export default function App() {
 
           showToast('🎉 Razorpay Payment Verified! 1-Year FleetBot AI Access Activated.');
           return true;
+        } else if (data.error) {
+          showToast(`❌ Verification failed: ${data.error}`);
+          return false;
         }
       }
     } catch (e) {

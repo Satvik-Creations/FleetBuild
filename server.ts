@@ -93,6 +93,18 @@ async function startServer() {
       const order_id = ((query.order_id || body.order_id) as string)?.trim();
       const rawStatus = ((query.status || body.status) as string)?.toLowerCase();
 
+      // Strict Razorpay Payment ID Format check (starts with pay_ followed by at least 10 alphanumeric chars)
+      const isValidPaymentIdFormat = payment_id ? /^pay_[a-zA-Z0-9]{10,}$/i.test(payment_id) : false;
+
+      if (payment_id && !isValidPaymentIdFormat) {
+        return res.status(400).json({
+          success: false,
+          isPaid: false,
+          paymentStatus: 'failed',
+          error: 'Invalid Razorpay Payment ID format. Valid payment IDs start with "pay_" followed by at least 10 characters (e.g. pay_P2aK8mN9xQ1234).',
+        });
+      }
+
       if (rawStatus === 'failed' || rawStatus === 'cancelled') {
         return res.status(400).json({
           success: false,
@@ -102,7 +114,7 @@ async function startServer() {
         });
       }
 
-      if ((payment_id && payment_id.startsWith('pay_')) || rawStatus === 'success' || rawStatus === 'successful') {
+      if ((payment_id && isValidPaymentIdFormat) || rawStatus === 'success' || rawStatus === 'successful') {
         const pId = payment_id || `pay_rzp_${Date.now()}`;
         const purchaseDate = new Date().toISOString();
         const accessStartDate = purchaseDate;

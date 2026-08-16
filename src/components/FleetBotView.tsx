@@ -731,26 +731,10 @@ export const FleetBotView: React.FC<FleetBotViewProps> = ({
               </div>
             </div>
 
-            <div className="flex justify-between gap-2 pt-2">
-              {onResetPayment && (
-                <button
-                  onClick={() => {
-                    if (window.confirm("Lock FleetBot again for testing?")) {
-                      onResetPayment();
-                      setShowReceiptModal(false);
-                      if (showToast) showToast('FleetBot locked for testing.');
-                    }
-                  }}
-                  className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-semibold text-xs rounded-xl flex items-center gap-1 cursor-pointer"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Lock Again (Test)</span>
-                </button>
-              )}
-
+            <div className="flex justify-end pt-2">
               <button
                 onClick={() => setShowReceiptModal(false)}
-                className="px-5 py-2 bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs rounded-xl ml-auto cursor-pointer"
+                className="px-6 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors"
               >
                 Close Receipt
               </button>
