@@ -170,7 +170,7 @@ export default function App() {
   }, [user]);
 
   // Verify Razorpay Payment from parameters or user submission
-  const verifyRazorpayPayment = async (givenPaymentId?: string) => {
+  const verifyRazorpayPayment = async (givenPaymentId?: string): Promise<boolean> => {
     try {
       const urlParams = new URLSearchParams(window.location.search);
       const hashParams = new URLSearchParams(window.location.hash.replace('#', '?'));
@@ -188,8 +188,8 @@ export default function App() {
       const isValidFormat = targetId ? /^pay_[a-zA-Z0-9]{10,}$/i.test(targetId) : false;
 
       if (targetId && !isValidFormat) {
-        showToast('❌ Invalid Payment ID format. Must start with pay_ followed by 10+ characters (e.g. pay_P2aK8mN9xQ1234).');
-        return false;
+        showToast('❌ Invalid Payment ID format. Must start with pay_ followed by at least 10 alphanumeric characters (e.g. pay_P2aK8mN9xQ1234).');
+        throw new Error('Invalid Razorpay Payment ID format.');
       }
 
       if (targetId || paymentStatus === 'success' || paymentStatus === 'successful') {
@@ -213,13 +213,15 @@ export default function App() {
 
           showToast('🎉 Razorpay Payment Verified! 1-Year FleetBot AI Access Activated.');
           return true;
-        } else if (data.error) {
-          showToast(`❌ Verification failed: ${data.error}`);
-          return false;
+        } else {
+          showToast(`❌ Verification failed: ${data.error || 'Unable to verify payment'}`);
+          throw new Error(data.error || 'Payment verification failed with Razorpay gateway.');
         }
       }
-    } catch (e) {
-      console.error('Error verifying Razorpay redirect:', e);
+    } catch (e: any) {
+      console.error('Error verifying Razorpay payment:', e);
+      showToast(`❌ ${e.message || 'Payment verification failed'}`);
+      throw e;
     }
     return false;
   };
@@ -227,12 +229,12 @@ export default function App() {
   // Automatic redirect listener on mount & tab focus
   useEffect(() => {
     if (user) {
-      verifyRazorpayPayment();
+      verifyRazorpayPayment().catch(() => {});
     }
 
     const handleWindowFocus = () => {
       if (user) {
-        verifyRazorpayPayment();
+        verifyRazorpayPayment().catch(() => {});
       }
     };
 
@@ -244,15 +246,6 @@ export default function App() {
       window.removeEventListener('popstate', handleWindowFocus);
     };
   }, [user]);
-
-  const handleResetFleetBotPayment = () => {
-    setIsFleetBotPaid(false);
-    setFleetBotPaymentDetails(null);
-    if (user) {
-      setUser({ ...user, isPaid: false, paymentDetails: null });
-    }
-    showToast('FleetBot AI subscription reset. Annual renewal required.');
-  };
 
   // Save dailyMetrics to localStorage on change
   useEffect(() => {
@@ -681,7 +674,6 @@ export default function App() {
                 isPaid={isFleetBotPaid}
                 paymentDetails={fleetBotPaymentDetails}
                 onVerifyPayment={verifyRazorpayPayment}
-                onResetPayment={handleResetFleetBotPayment}
                 showToast={showToast}
               />
             )}

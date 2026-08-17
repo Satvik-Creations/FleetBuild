@@ -14,6 +14,7 @@ import {
   ConfirmMemorySchema,
 } from './src/domain/schemas.js';
 import { UserRole, SubscriptionRecord } from './src/domain/models.js';
+import { verifyPaymentWithRazorpayApi, verifyRazorpayWebhookSignature } from './src/server/razorpay.js';
 
 interface AuthenticatedRequest extends express.Request {
   user?: {
@@ -93,18 +94,6 @@ async function startServer() {
       const order_id = ((query.order_id || body.order_id) as string)?.trim();
       const rawStatus = ((query.status || body.status) as string)?.toLowerCase();
 
-      // Strict Razorpay Payment ID Format check (starts with pay_ followed by at least 10 alphanumeric chars)
-      const isValidPaymentIdFormat = payment_id ? /^pay_[a-zA-Z0-9]{10,}$/i.test(payment_id) : false;
-
-      if (payment_id && !isValidPaymentIdFormat) {
-        return res.status(400).json({
-          success: false,
-          isPaid: false,
-          paymentStatus: 'failed',
-          error: 'Invalid Razorpay Payment ID format. Valid payment IDs start with "pay_" followed by at least 10 characters (e.g. pay_P2aK8mN9xQ1234).',
-        });
-      }
-
       if (rawStatus === 'failed' || rawStatus === 'cancelled') {
         return res.status(400).json({
           success: false,
@@ -114,53 +103,115 @@ async function startServer() {
         });
       }
 
-      if ((payment_id && isValidPaymentIdFormat) || rawStatus === 'success' || rawStatus === 'successful') {
-        const pId = payment_id || `pay_rzp_${Date.now()}`;
-        const purchaseDate = new Date().toISOString();
-        const accessStartDate = purchaseDate;
-        const accessExpiryDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
-
-        const subscription: SubscriptionRecord = {
-          userId,
-          paymentId: pId,
-          orderId: order_id || `order_fleet_${Date.now()}`,
-          paymentStatus: 'successful',
-          plan: 'FleetBot_1_Year',
-          purchaseDate,
-          accessStartDate,
-          accessExpiryDate,
-          amount: 49,
-        };
-
-        const updatedUser = await repository.updateUserSubscription(userId, subscription);
-
-        return res.json({
-          success: true,
-          isPaid: true,
-          paymentStatus: 'successful',
-          subscription,
-          user: {
-            id: updatedUser.id,
-            name: updatedUser.name,
-            email: updatedUser.email,
-            role: updatedUser.role,
-            onboardingCompleted: updatedUser.onboardingCompleted,
-            subscription: updatedUser.subscription,
-            isPaid: true,
-            paymentDetails: updatedUser.paymentDetails,
-          },
+      if (!payment_id) {
+        return res.status(400).json({
+          success: false,
+          isPaid: false,
+          paymentStatus: 'failed',
+          error: 'Razorpay Payment ID is required for verification.',
         });
       }
 
-      return res.status(400).json({
-        success: false,
-        isPaid: false,
-        paymentStatus: 'failed',
-        error: 'Razorpay payment verification failed. Access cannot be granted without completed payment on the gateway.',
+      // Verify the payment ID directly against the Razorpay REST API
+      const verifyResult = await verifyPaymentWithRazorpayApi(payment_id);
+
+      if (!verifyResult.valid || !verifyResult.payment) {
+        return res.status(400).json({
+          success: false,
+          isPaid: false,
+          paymentStatus: 'failed',
+          error: verifyResult.error || 'Payment verification failed with Razorpay.',
+        });
+      }
+
+      const paymentData = verifyResult.payment;
+      const actualAmountPaid = typeof paymentData.amount === 'number' ? paymentData.amount / 100 : 49;
+      const purchaseDate = paymentData.created_at ? new Date(paymentData.created_at * 1000).toISOString() : new Date().toISOString();
+      const accessStartDate = purchaseDate;
+      const accessExpiryDate = new Date(new Date(purchaseDate).getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
+
+      const subscription: SubscriptionRecord = {
+        userId,
+        paymentId: paymentData.id,
+        orderId: paymentData.order_id || order_id || `order_fleet_${Date.now()}`,
+        paymentStatus: 'successful',
+        plan: 'FleetBot_1_Year',
+        purchaseDate,
+        accessStartDate,
+        accessExpiryDate,
+        amount: actualAmountPaid,
+      };
+
+      const updatedUser = await repository.updateUserSubscription(userId, subscription);
+
+      return res.json({
+        success: true,
+        isPaid: true,
+        paymentStatus: 'successful',
+        subscription,
+        user: {
+          id: updatedUser.id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          onboardingCompleted: updatedUser.onboardingCompleted,
+          subscription: updatedUser.subscription,
+          isPaid: true,
+          paymentDetails: updatedUser.paymentDetails,
+        },
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error verifying payment:', err);
-      res.status(500).json({ error: 'Failed to verify payment with server.' });
+      res.status(500).json({ error: err.message || 'Failed to verify payment with server.' });
+    }
+  });
+
+  // POST /api/payment/razorpay-webhook (Server-to-Server Razorpay Webhook)
+  app.post('/api/payment/razorpay-webhook', async (req, res) => {
+    try {
+      const signature = req.headers['x-razorpay-signature'] as string;
+      const rawBody = JSON.stringify(req.body);
+
+      if (process.env.RAZORPAY_WEBHOOK_SECRET) {
+        const isValidSignature = verifyRazorpayWebhookSignature(rawBody, signature);
+        if (!isValidSignature) {
+          return res.status(400).json({ error: 'Invalid webhook signature.' });
+        }
+      }
+
+      const event = req.body?.event;
+      const payload = req.body?.payload;
+
+      if (event === 'payment.captured' || event === 'order.paid') {
+        const payment = payload?.payment?.entity;
+        if (payment && payment.status === 'captured') {
+          const userEmail = payment.email || payment.notes?.user_email;
+          if (userEmail) {
+            const user = await repository.findUserByEmail(userEmail);
+            if (user) {
+              const purchaseDate = new Date().toISOString();
+              const subscription: SubscriptionRecord = {
+                userId: user.id,
+                paymentId: payment.id,
+                orderId: payment.order_id || `order_fleet_${Date.now()}`,
+                paymentStatus: 'successful',
+                plan: 'FleetBot_1_Year',
+                purchaseDate,
+                accessStartDate: purchaseDate,
+                accessExpiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+                amount: (payment.amount || 4900) / 100,
+              };
+              await repository.updateUserSubscription(user.id, subscription);
+              console.log(`[Webhook] Activated 1-Year FleetBot pass for user: ${user.email} (${payment.id})`);
+            }
+          }
+        }
+      }
+
+      res.json({ status: 'ok' });
+    } catch (err) {
+      console.error('Webhook error:', err);
+      res.status(500).json({ error: 'Webhook processing failed.' });
     }
   });
 

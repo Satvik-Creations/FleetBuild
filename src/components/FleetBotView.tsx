@@ -16,8 +16,7 @@ import {
   CheckCircle2, 
   HelpCircle,
   X,
-  Receipt,
-  RotateCcw
+  Receipt
 } from 'lucide-react';
 
 interface FleetBotViewProps {
@@ -31,7 +30,6 @@ interface FleetBotViewProps {
   isPaid: boolean;
   paymentDetails: { paymentId?: string; paidAt?: string; expiresAt?: string; planName?: string } | null;
   onVerifyPayment: (paymentId?: string) => Promise<boolean>;
-  onResetPayment?: () => void;
   showToast?: (msg: string) => void;
 }
 
@@ -46,7 +44,6 @@ export const FleetBotView: React.FC<FleetBotViewProps> = ({
   isPaid,
   paymentDetails,
   onVerifyPayment,
-  onResetPayment,
   showToast,
 }) => {
   const [inputText, setInputText] = useState('');
