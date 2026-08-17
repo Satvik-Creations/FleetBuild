@@ -102,6 +102,7 @@ export class JsonFileUserRepository implements UserRepository {
 
   private saveUsersToFile(): void {
     try {
+      this.ensureDataDirectory();
       const obj: Record<string, StoredUserData> = {};
       for (const [key, val] of this.usersMap.entries()) {
         obj[key] = val;
@@ -114,6 +115,7 @@ export class JsonFileUserRepository implements UserRepository {
 
   private saveSessionsToFile(): void {
     try {
+      this.ensureDataDirectory();
       const obj: Record<string, UserSession> = {};
       for (const [key, val] of this.sessionsMap.entries()) {
         obj[key] = val;

@@ -188,8 +188,7 @@ export default function App() {
       const isValidFormat = targetId ? /^pay_[a-zA-Z0-9]{10,}$/i.test(targetId) : false;
 
       if (targetId && !isValidFormat) {
-        showToast('❌ Invalid Payment ID format. Must start with pay_ followed by at least 10 alphanumeric characters (e.g. pay_P2aK8mN9xQ1234).');
-        throw new Error('Invalid Razorpay Payment ID format.');
+        throw new Error('Please enter a valid Razorpay Payment ID from your receipt (starts with pay_ followed by letters and numbers).');
       }
 
       if (targetId || paymentStatus === 'success' || paymentStatus === 'successful') {
@@ -214,13 +213,11 @@ export default function App() {
           showToast('🎉 Razorpay Payment Verified! 1-Year FleetBot AI Access Activated.');
           return true;
         } else {
-          showToast(`❌ Verification failed: ${data.error || 'Unable to verify payment'}`);
-          throw new Error(data.error || 'Payment verification failed with Razorpay gateway.');
+          throw new Error(data.error || 'Payment could not be verified on the gateway. Please ensure your payment completed successfully.');
         }
       }
     } catch (e: any) {
-      console.error('Error verifying Razorpay payment:', e);
-      showToast(`❌ ${e.message || 'Payment verification failed'}`);
+      console.warn('Payment verification notice:', e?.message);
       throw e;
     }
     return false;

@@ -53,9 +53,10 @@ export async function verifyPaymentWithRazorpayApi(paymentId: string): Promise<V
   }
 
   if (!keyId || !keySecret) {
+    console.warn('[Razorpay API] RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET is not configured in server environment variables.');
     return {
       valid: false,
-      error: 'Razorpay API credentials (RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET) must be set in your Environment Variables / Secrets to verify live payments against the Razorpay Gateway.',
+      error: 'We could not confirm this transaction with the payment gateway. Please ensure your ₹49 payment completed successfully on the Razorpay portal or try again in a few moments.',
     };
   }
 
@@ -71,10 +72,10 @@ export async function verifyPaymentWithRazorpayApi(paymentId: string): Promise<V
 
     if (!response.ok) {
       const errJson = await response.json().catch(() => null);
-      const desc = errJson?.error?.description || `Razorpay returned HTTP ${response.status}`;
+      console.warn(`[Razorpay Gateway] Payment lookup failed for ${cleanPaymentId}: HTTP ${response.status}`, errJson);
       return {
         valid: false,
-        error: `Razorpay payment verification failed: ${desc}. Please verify that you paid on the official gateway page.`,
+        error: 'No matching payment record was found on Razorpay. Please verify the Payment ID from your Razorpay receipt (e.g. pay_...) and try again.',
       };
     }
 
@@ -84,7 +85,7 @@ export async function verifyPaymentWithRazorpayApi(paymentId: string): Promise<V
     if (data.status !== 'captured' && data.status !== 'authorized') {
       return {
         valid: false,
-        error: `Payment is currently in '${data.status}' state. Only captured and successful payments can unlock FleetBot.`,
+        error: `This payment is currently ${data.status}. Only completed payments can activate FleetBot access.`,
       };
     }
 
@@ -92,7 +93,7 @@ export async function verifyPaymentWithRazorpayApi(paymentId: string): Promise<V
     if (data.currency && data.currency.toUpperCase() !== 'INR') {
       return {
         valid: false,
-        error: `Invalid currency (${data.currency}). Expected INR.`,
+        error: `Payment currency (${data.currency}) is invalid. Expected INR.`,
       };
     }
 
@@ -112,7 +113,7 @@ export async function verifyPaymentWithRazorpayApi(paymentId: string): Promise<V
     console.error('Error contacting Razorpay API:', err);
     return {
       valid: false,
-      error: `Could not reach Razorpay API server: ${err.message || 'Network error'}`,
+      error: 'Unable to reach the payment verification server. Please check your internet connection and try again.',
     };
   }
 }
