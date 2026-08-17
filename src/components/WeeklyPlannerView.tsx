@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScheduledDay, WorkoutPlan } from '../types';
 import { CURATED_WORKOUT_PROGRAMS } from '../data/programsData';
 import { api } from '../lib/api';
@@ -18,23 +18,62 @@ import {
 interface WeeklyPlannerViewProps {
   onSelectPlan: (plan: WorkoutPlan) => void;
   userGoal?: string;
+  userId?: string;
   showToast: (msg: string) => void;
 }
+
+const DEFAULT_SCHEDULE: ScheduledDay[] = [
+  { dayName: 'Mon', workoutPlanId: 'prog-push-pull-legs', workoutTitle: 'Push Day (Chest, Shoulders, Triceps)', isRestDay: false, isCompleted: false },
+  { dayName: 'Tue', workoutPlanId: 'prog-push-pull-legs', workoutTitle: 'Pull Day (Back, Biceps)', isRestDay: false, isCompleted: false },
+  { dayName: 'Wed', isRestDay: true, isCompleted: false },
+  { dayName: 'Thu', workoutPlanId: 'prog-push-pull-legs', workoutTitle: 'Leg Day (Quads, Hamstrings, Glutes)', isRestDay: false, isCompleted: false },
+  { dayName: 'Fri', workoutPlanId: 'prog-full-body-shred', workoutTitle: 'Upper Body Hypertrophy', isRestDay: false, isCompleted: false },
+  { dayName: 'Sat', isRestDay: true, isCompleted: false },
+  { dayName: 'Sun', workoutPlanId: 'prog-home-no-equipment', workoutTitle: 'Core & Mobility Circuit', isRestDay: false, isCompleted: false },
+];
 
 export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
   onSelectPlan,
   userGoal,
+  userId,
   showToast
 }) => {
-  const [schedule, setSchedule] = useState<ScheduledDay[]>([
-    { dayName: 'Mon', workoutPlanId: 'prog-push-pull-legs', workoutTitle: 'Push Day (Chest, Shoulders, Triceps)', isRestDay: false, isCompleted: true },
-    { dayName: 'Tue', workoutPlanId: 'prog-push-pull-legs', workoutTitle: 'Pull Day (Back, Biceps)', isRestDay: false, isCompleted: true },
-    { dayName: 'Wed', isRestDay: true, isCompleted: false },
-    { dayName: 'Thu', workoutPlanId: 'prog-push-pull-legs', workoutTitle: 'Leg Day (Quads, Hamstrings, Glutes)', isRestDay: false, isCompleted: false },
-    { dayName: 'Fri', workoutPlanId: 'prog-full-body-shred', workoutTitle: 'Upper Body Hypertrophy', isRestDay: false, isCompleted: false },
-    { dayName: 'Sat', isRestDay: true, isCompleted: false },
-    { dayName: 'Sun', workoutPlanId: 'prog-home-no-equipment', workoutTitle: 'Core & Mobility Circuit', isRestDay: false, isCompleted: false },
-  ]);
+  const storageKey = userId ? `fleetbuild_weekly_schedule_${userId}` : 'fleetbuild_weekly_schedule';
+
+  const [schedule, setSchedule] = useState<ScheduledDay[]>(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('Error loading weekly schedule:', e);
+    }
+    return DEFAULT_SCHEDULE;
+  });
+
+  // Sync state if user changes
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        setSchedule(JSON.parse(saved));
+      } else {
+        setSchedule(DEFAULT_SCHEDULE);
+      }
+    } catch (e) {
+      setSchedule(DEFAULT_SCHEDULE);
+    }
+  }, [storageKey]);
+
+  const saveSchedule = (newSchedule: ScheduledDay[]) => {
+    setSchedule(newSchedule);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(newSchedule));
+    } catch (e) {
+      console.error('Error saving weekly schedule:', e);
+    }
+  };
 
   const [isGeneratingSchedule, setIsGeneratingSchedule] = useState(false);
 
@@ -47,14 +86,14 @@ export const WeeklyPlannerView: React.FC<WeeklyPlannerViewProps> = ({
     } else {
       updated[dayIndex].workoutTitle = 'Full Body Conditioning';
     }
-    setSchedule(updated);
+    saveSchedule(updated);
     showToast(`Updated ${updated[dayIndex].dayName} status.`);
   };
 
   const toggleCompletedDay = (dayIndex: number) => {
     const updated = [...schedule];
     updated[dayIndex].isCompleted = !updated[dayIndex].isCompleted;
-    setSchedule(updated);
+    saveSchedule(updated);
     showToast(`${updated[dayIndex].dayName} marked as ${updated[dayIndex].isCompleted ? 'Completed' : 'Pending'}.`);
   };
 
@@ -66,7 +105,7 @@ Return a balanced split with 2 rest days.`;
 
       await api.sendChatMessage(prompt, []);
 
-      setSchedule([
+      const aiSchedule: ScheduledDay[] = [
         { dayName: 'Mon', workoutPlanId: 'prog-push-pull-legs', workoutTitle: 'AI Push Focus (Chest & Delts)', isRestDay: false, isCompleted: false },
         { dayName: 'Tue', workoutPlanId: 'prog-push-pull-legs', workoutTitle: 'AI Pull Focus (Lats & Biceps)', isRestDay: false, isCompleted: false },
         { dayName: 'Wed', isRestDay: true, isCompleted: false },
@@ -74,9 +113,10 @@ Return a balanced split with 2 rest days.`;
         { dayName: 'Fri', workoutPlanId: 'prog-arnold-split', workoutTitle: 'AI Upper Body Hypertrophy', isRestDay: false, isCompleted: false },
         { dayName: 'Sat', isRestDay: true, isCompleted: false },
         { dayName: 'Sun', workoutPlanId: 'prog-full-body-shred', workoutTitle: 'AI Conditioning & Core', isRestDay: false, isCompleted: false },
-      ]);
+      ];
 
-      showToast('Generated AI Weekly Training Schedule!');
+      saveSchedule(aiSchedule);
+      showToast('Generated & saved AI Weekly Training Schedule!');
     } catch (err) {
       showToast('Failed to generate AI schedule. Try again.');
     } finally {
@@ -169,7 +209,7 @@ Return a balanced split with 2 rest days.`;
             <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between">
               <button
                 onClick={() => toggleRestDay(idx)}
-                className="text-[11px] font-semibold text-zinc-400 hover:text-amber-400 transition-colors"
+                className="text-[11px] font-semibold text-zinc-400 hover:text-amber-400 transition-colors cursor-pointer"
               >
                 {day.isRestDay ? 'Make Workout Day' : 'Set as Rest Day'}
               </button>

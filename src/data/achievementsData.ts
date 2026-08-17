@@ -7,9 +7,8 @@ export const INITIAL_ACHIEVEMENTS: Achievement[] = [
     description: 'Complete your first workout session in FleetBuild.',
     category: 'Workouts',
     iconName: 'Dumbbell',
-    unlocked: true,
-    unlockedAt: '2026-08-01',
-    progress: 1,
+    unlocked: false,
+    progress: 0,
     maxProgress: 1,
   },
   {
@@ -18,9 +17,8 @@ export const INITIAL_ACHIEVEMENTS: Achievement[] = [
     description: 'Log active metrics or complete workouts 7 days in a row.',
     category: 'Streak',
     iconName: 'Zap',
-    unlocked: true,
-    unlockedAt: '2026-08-03',
-    progress: 7,
+    unlocked: false,
+    progress: 0,
     maxProgress: 7,
   },
   {
@@ -30,7 +28,7 @@ export const INITIAL_ACHIEVEMENTS: Achievement[] = [
     category: 'Streak',
     iconName: 'Flame',
     unlocked: false,
-    progress: 7,
+    progress: 0,
     maxProgress: 30,
   },
   {
@@ -39,9 +37,8 @@ export const INITIAL_ACHIEVEMENTS: Achievement[] = [
     description: 'Hit your daily protein intake goal 5 days in a row.',
     category: 'Nutrition',
     iconName: 'Utensils',
-    unlocked: true,
-    unlockedAt: '2026-08-02',
-    progress: 5,
+    unlocked: false,
+    progress: 0,
     maxProgress: 5,
   },
   {
@@ -51,7 +48,7 @@ export const INITIAL_ACHIEVEMENTS: Achievement[] = [
     category: 'Workouts',
     iconName: 'Award',
     unlocked: false,
-    progress: 4,
+    progress: 0,
     maxProgress: 10,
   },
   {
@@ -61,7 +58,7 @@ export const INITIAL_ACHIEVEMENTS: Achievement[] = [
     category: 'Nutrition',
     iconName: 'Droplet',
     unlocked: false,
-    progress: 6,
+    progress: 0,
     maxProgress: 10,
   },
   {
@@ -70,9 +67,9 @@ export const INITIAL_ACHIEVEMENTS: Achievement[] = [
     description: 'Engage with FleetBot AI Coach to store 3 personalized memory facts.',
     category: 'Milestone',
     iconName: 'Bot',
-    unlocked: true,
-    unlockedAt: '2026-08-02',
-    progress: 3,
+    unlocked: false,
+    progress: 0,
     maxProgress: 3,
   }
 ];
+

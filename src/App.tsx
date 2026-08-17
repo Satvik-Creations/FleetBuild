@@ -85,7 +85,7 @@ const defaultEmptyPlan: WorkoutPlan = {
 
 const defaultEmptyDailyMetrics: DailyMetrics = {
   weight: 0,
-  streakDays: 1,
+  streakDays: 0,
   caloriesConsumed: 0,
   calorieTarget: 2000,
   proteinGrams: 0,
@@ -96,9 +96,9 @@ const defaultEmptyDailyMetrics: DailyMetrics = {
   fatTarget: 65,
   waterLiters: 0,
   waterTarget: 2.5,
-  sleepHours: 8,
+  sleepHours: 0,
   hrvMs: 0,
-  recoveryScore: 100,
+  recoveryScore: 0,
 };
 
 export default function App() {
@@ -137,6 +137,71 @@ export default function App() {
   } | null>(null);
 
   const [isFleetBotPaid, setIsFleetBotPaid] = useState<boolean>(false);
+  const [confirmedMemoriesCount, setConfirmedMemoriesCount] = useState<number>(0);
+  const [completedWorkouts, setCompletedWorkouts] = useState<Array<{
+    id: string;
+    date: string;
+    planTitle: string;
+    durationMinutes: number;
+    caloriesBurned: number;
+  }>>(() => {
+    try {
+      const saved = localStorage.getItem('fleetbuild_completed_workouts');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Error loading workout history:', e);
+    }
+    return [];
+  });
+
+  // Calculate nutrition achievement metrics from saved logs
+  const [proteinGoalDaysCount, setProteinGoalDaysCount] = useState<number>(0);
+  const [hydrationGoalDaysCount, setHydrationGoalDaysCount] = useState<number>(0);
+
+  const refreshNutritionMetrics = () => {
+    try {
+      const saved = localStorage.getItem('fleetbuild_nutrition_logs');
+      if (saved) {
+        const logs = JSON.parse(saved);
+        if (Array.isArray(logs)) {
+          const proteinLogs = logs.filter((l: any) => l.type === 'protein');
+          const waterLogs = logs.filter((l: any) => l.type === 'water');
+          setProteinGoalDaysCount(Math.min(10, Math.floor(proteinLogs.length / 3)));
+          setHydrationGoalDaysCount(Math.min(10, waterLogs.length));
+        }
+      }
+    } catch (e) {}
+  };
+
+  // Sync memory facts & nutrition logs
+  useEffect(() => {
+    if (user) {
+      api.getMemoryFacts().then((facts) => {
+        const confirmed = (facts || []).filter((f: any) => f.status === 'confirmed').length;
+        setConfirmedMemoriesCount(confirmed);
+      }).catch(() => {});
+      refreshNutritionMetrics();
+    } else {
+      setConfirmedMemoriesCount(0);
+      setProteinGoalDaysCount(0);
+      setHydrationGoalDaysCount(0);
+    }
+  }, [user, currentView]);
+
+  // Sync completed workouts with storage
+  useEffect(() => {
+    try {
+      const key = user ? `fleetbuild_completed_workouts_${user.id}` : 'fleetbuild_completed_workouts';
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        setCompletedWorkouts(JSON.parse(saved));
+      } else {
+        setCompletedWorkouts([]);
+      }
+    } catch (e) {
+      setCompletedWorkouts([]);
+    }
+  }, [user?.id]);
 
   // Sync payment state directly with user profile & account
   useEffect(() => {
@@ -627,6 +692,7 @@ export default function App() {
                   setCurrentView('workout');
                 }}
                 userGoal={userProfile.fitnessGoal?.title}
+                userId={user?.id}
                 showToast={showToast}
               />
             )}
@@ -641,7 +707,13 @@ export default function App() {
             )}
 
             {currentView === 'achievements' && (
-              <AchievementsView />
+              <AchievementsView
+                metrics={dailyMetrics}
+                completedWorkoutsCount={completedWorkouts.length}
+                confirmedMemoriesCount={confirmedMemoriesCount}
+                proteinGoalDaysCount={proteinGoalDaysCount}
+                hydrationGoalDaysCount={hydrationGoalDaysCount}
+              />
             )}
 
             {currentView === 'fleetbot' && (
@@ -653,7 +725,7 @@ export default function App() {
                   hates: userProfile.exercisePreferences?.excludedExercises?.join(', ') || 'None',
                   calories: 'Custom Goal',
                   equipment: userProfile.equipmentAccess?.join(', ') || 'None Listed',
-                  recoveryScore: 100,
+                  recoveryScore: dailyMetrics.recoveryScore || 0,
                   lastUpdated: 'Just now',
                 }}
                 onSendMessage={handleSendMessage}
@@ -752,8 +824,24 @@ export default function App() {
           workoutPlan={activeSessionPlan}
           onClose={() => setActiveSessionPlan(null)}
           onCompleteSession={({ durationMinutes, caloriesBurned }) => {
+            const newWk = {
+              id: `wk-${Date.now()}`,
+              date: new Date().toISOString(),
+              planTitle: activeSessionPlan?.title || 'Training Session',
+              durationMinutes,
+              caloriesBurned,
+            };
+            setCompletedWorkouts((prev) => {
+              const updated = [newWk, ...prev];
+              try {
+                const storageKey = user ? `fleetbuild_completed_workouts_${user.id}` : 'fleetbuild_completed_workouts';
+                localStorage.setItem(storageKey, JSON.stringify(updated));
+              } catch (e) {}
+              return updated;
+            });
             setDailyMetrics((prev) => ({
               ...prev,
+              streakDays: Math.max(1, (prev.streakDays || 0) + 1),
               caloriesConsumed: Math.max(0, prev.caloriesConsumed + caloriesBurned),
             }));
             showToast(`Recorded Workout: ${durationMinutes} mins (~${caloriesBurned} kcal burned)!`);
