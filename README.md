@@ -5,8 +5,10 @@
 
 <div align="center">
 
+<a href="https://fleetbuild.onrender.com/">
 <img src="public/favicon.png" alt="FleetBuild Logo" width="125" />
 
+<a href="https://fleetbuild.onrender.com/">
 <img src="public/banner.png" alt="FleetBuild — Personal Fitness Command Center" />
 
 </div>
