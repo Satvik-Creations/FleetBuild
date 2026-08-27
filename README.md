@@ -2,7 +2,17 @@
 
 # ⚡ FleetBuild
 
-### Your Personal Fitness Command Center
+<div align="center">
+
+<img src="public/favicon.png" alt="FleetBuild Logo" width="100" />
+
+# FleetBuild
+
+**Your Personal Fitness Command Center**
+
+<img src="public/banner.png" alt="FleetBuild — Personal Fitness Command Center" />
+
+</div>
 
 A modern, full-stack fitness application designed to bring **workouts, nutrition, health tracking, progress, achievements, and AI-powered coaching** into one focused experience.
 
