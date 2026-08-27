@@ -1,12 +1,10 @@
 <div align="center">
 
-# ⚡ FleetBuild
+# ⚡FleetBuild
 
 <div align="center">
 
 <img src="public/favicon.png" alt="FleetBuild Logo" width="100" />
-
-# FleetBuild
 
 **Your Personal Fitness Command Center**
 
