@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⚡FleetBuild
+# ⚡FleetBuild⚡
 **Your Personal Fitness Command Center**
 
 <div align="center">
