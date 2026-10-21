@@ -147,7 +147,7 @@ Example:
 
 |         Dashboard        |      Workout Planner     |
 | :----------------------: | :----------------------: |
-| <img src="public/workoutplanner.png" alt="FleetBuild - Dashboard" />| *Screenshot coming soon* |
+| <img src="public/dashboard.png" alt="FleetBuild - Dashboard" />| <img src="public/workoutplanner.png" alt="FleetBuild - Dashboard" /> |
 
 ### Mobile
 
